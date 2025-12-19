@@ -33,8 +33,16 @@ services:
       - VPN_PRIMARY_DOMAIN=${VPN_PRIMARY_DOMAIN:-larastory.com}
       - VPN_PANEL_DOMAIN=${VPN_PANEL_DOMAIN:-dashboard.larastory.com}
       - VPN_SUBSCRIPTION_PORT=${VPN_SUBSCRIPTION_PORT:-2096}
-    # Domain configuration is managed via Dokploy UI
-    # Service: laravel | Host: larastory.com | Port: 80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.larastory-web.rule=Host(`larastory.com`)"
+      - "traefik.http.routers.larastory-web.entrypoints=web"
+      - "traefik.http.routers.larastory-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.larastory-websecure.rule=Host(`larastory.com`)"
+      - "traefik.http.routers.larastory-websecure.entrypoints=websecure"
+      - "traefik.http.routers.larastory-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.larastory.loadbalancer.server.port=80"
+      - "traefik.docker.network=dokploy-network"
     depends_on:
       - 3x-ui
     healthcheck:
@@ -57,10 +65,18 @@ services:
     ports:
       - "8443:8443"    # VPN connections (VLESS/Reality)
       - "2096:2096"    # Subscription port
-    # Panel access (port 2053) via Dokploy domain routing - NOT exposed directly
-    # In Dokploy UI: Add domain dashboard.larastory.com → Service: 3x-ui → Port: 2053
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.3xui-web.rule=Host(`dashboard.larastory.com`)"
+      - "traefik.http.routers.3xui-web.entrypoints=web"
+      - "traefik.http.routers.3xui-web.middlewares=redirect-to-https@file"
+      - "traefik.http.routers.3xui-websecure.rule=Host(`dashboard.larastory.com`)"
+      - "traefik.http.routers.3xui-websecure.entrypoints=websecure"
+      - "traefik.http.routers.3xui-websecure.tls.certresolver=letsencrypt"
+      - "traefik.http.services.3xui.loadbalancer.server.port=2053"
+      - "traefik.docker.network=dokploy-network"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:2053/"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:2053/"]
       interval: 30s
       timeout: 10s
       retries: 3

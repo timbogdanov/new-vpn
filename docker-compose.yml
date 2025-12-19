@@ -5,7 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: larastory-laravel
     restart: unless-stopped
     networks:
       - dokploy-network
@@ -34,14 +33,8 @@ services:
       - VPN_PRIMARY_DOMAIN=${VPN_PRIMARY_DOMAIN:-larastory.com}
       - VPN_PANEL_DOMAIN=${VPN_PANEL_DOMAIN:-dashboard.larastory.com}
       - VPN_SUBSCRIPTION_PORT=${VPN_SUBSCRIPTION_PORT:-2096}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.larastory-laravel.rule=Host(`${VPN_PRIMARY_DOMAIN:-larastory.com}`)"
-      - "traefik.http.routers.larastory-laravel.entrypoints=https"
-      - "traefik.http.routers.larastory-laravel.tls=true"
-      - "traefik.http.routers.larastory-laravel.tls.certresolver=letsencrypt"
-      - "traefik.http.services.larastory-laravel.loadbalancer.server.port=80"
-      - "traefik.docker.network=dokploy-network"
+    # Domain configuration is managed via Dokploy UI
+    # Service: laravel | Host: larastory.com | Port: 80
     depends_on:
       - 3x-ui
     healthcheck:
@@ -52,7 +45,6 @@ services:
 
   3x-ui:
     image: ghcr.io/mhsanaei/3x-ui:latest
-    container_name: larastory-3xui
     restart: unless-stopped
     networks:
       - dokploy-network
@@ -65,14 +57,8 @@ services:
       # VPN ports - adjust based on your inbound configuration
       - "443:443"
       - "2096:2096"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.larastory-3xui.rule=Host(`${VPN_PANEL_DOMAIN:-dashboard.larastory.com}`)"
-      - "traefik.http.routers.larastory-3xui.entrypoints=https"
-      - "traefik.http.routers.larastory-3xui.tls=true"
-      - "traefik.http.routers.larastory-3xui.tls.certresolver=letsencrypt"
-      - "traefik.http.services.larastory-3xui.loadbalancer.server.port=2053"
-      - "traefik.docker.network=dokploy-network"
+    # Domain configuration is managed via Dokploy UI
+    # Service: 3x-ui | Host: dashboard.larastory.com | Port: 2053
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:2053/"]
       interval: 30s

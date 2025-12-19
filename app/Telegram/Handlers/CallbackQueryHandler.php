@@ -157,7 +157,7 @@ class CallbackQueryHandler
             return;
         }
 
-        $vlessLink = $this->linkService->getVlessLink($client);
+        $vlessLink = $this->xuiService->getVlessLink($client);
 
         if (!$vlessLink) {
             $this->telegram->sendMessage([

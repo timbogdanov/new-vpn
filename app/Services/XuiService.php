@@ -253,4 +253,67 @@ class XuiService
         $cacheKey = 'xui_session_' . md5($this->host . $this->username);
         Cache::forget($cacheKey);
     }
+
+    /**
+     * Get VLESS link for a client
+     */
+    public function getVlessLink(VpnClientDTO $client): ?string
+    {
+        try {
+            $response = $this->makeRequest('GET', 'panel/api/inbounds/get/' . $this->inboundId);
+
+            if (!($response['success'] ?? false) || empty($response['obj'])) {
+                Log::error('XUI: Failed to get inbound for VLESS link');
+                return null;
+            }
+
+            $inbound = $response['obj'];
+            $streamSettings = json_decode($inbound['streamSettings'] ?? '{}', true);
+
+            // Get connection parameters
+            $protocol = $inbound['protocol'] ?? 'vless';
+            $port = $inbound['port'] ?? 443;
+            $network = $streamSettings['network'] ?? 'tcp';
+            $security = $streamSettings['security'] ?? 'reality';
+
+            // Get server address from config
+            $serverAddress = config('vpn.primary_domain', $this->host);
+
+            // Build query parameters
+            $params = [
+                'type' => $network,
+                'security' => $security,
+                'flow' => $client->flow ?? 'xtls-rprx-vision',
+            ];
+
+            // Add Reality settings if applicable
+            if ($security === 'reality') {
+                $realitySettings = $streamSettings['realitySettings'] ?? [];
+                if (!empty($realitySettings['serverNames'][0])) {
+                    $params['sni'] = $realitySettings['serverNames'][0];
+                }
+                if (!empty($realitySettings['publicKey'])) {
+                    $params['pbk'] = $realitySettings['publicKey'];
+                }
+                if (!empty($realitySettings['shortIds'][0])) {
+                    $params['sid'] = $realitySettings['shortIds'][0];
+                }
+                if (!empty($realitySettings['fingerprint'])) {
+                    $params['fp'] = $realitySettings['fingerprint'];
+                } else {
+                    $params['fp'] = 'chrome';
+                }
+            }
+
+            // Build VLESS URL
+            $query = http_build_query($params);
+            $remark = urlencode($client->email ?? 'VPN');
+
+            return "vless://{$client->uuid}@{$serverAddress}:{$port}?{$query}#{$remark}";
+
+        } catch (\Exception $e) {
+            Log::error('XUI: Failed to build VLESS link', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
 }

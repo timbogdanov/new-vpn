@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   laravel:
     build:
@@ -57,11 +55,7 @@ services:
       - "8443:8443"    # VPN connections (VLESS/Reality)
       - "2096:2096"    # Subscription port
     # Domain managed via Dokploy UI: dashboard.larastory.com → Port 2053
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:2053/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # Note: No healthcheck - panel path is configurable in 3x-ui settings
 
 volumes:
   laravel_storage:

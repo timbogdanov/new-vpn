@@ -33,18 +33,7 @@ services:
       - VPN_PRIMARY_DOMAIN=${VPN_PRIMARY_DOMAIN:-larastory.com}
       - VPN_PANEL_DOMAIN=${VPN_PANEL_DOMAIN:-dashboard.larastory.com}
       - VPN_SUBSCRIPTION_PORT=${VPN_SUBSCRIPTION_PORT:-2096}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.larastory-web.rule=Host(`larastory.com`)"
-      - "traefik.http.routers.larastory-web.entrypoints=web"
-      - "traefik.http.routers.larastory-web.middlewares=redirect-to-https@file"
-      - "traefik.http.routers.larastory-web.service=larastory"
-      - "traefik.http.routers.larastory-websecure.rule=Host(`larastory.com`)"
-      - "traefik.http.routers.larastory-websecure.entrypoints=websecure"
-      - "traefik.http.routers.larastory-websecure.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.larastory-websecure.service=larastory"
-      - "traefik.http.services.larastory.loadbalancer.server.port=80"
-      - "traefik.docker.network=dokploy-network"
+    # Domain managed via Dokploy UI: larastory.com → Port 80
     depends_on:
       - 3x-ui
     healthcheck:
@@ -67,18 +56,7 @@ services:
     ports:
       - "8443:8443"    # VPN connections (VLESS/Reality)
       - "2096:2096"    # Subscription port
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.3xui-web.rule=Host(`dashboard.larastory.com`)"
-      - "traefik.http.routers.3xui-web.entrypoints=web"
-      - "traefik.http.routers.3xui-web.middlewares=redirect-to-https@file"
-      - "traefik.http.routers.3xui-web.service=3xui"
-      - "traefik.http.routers.3xui-websecure.rule=Host(`dashboard.larastory.com`)"
-      - "traefik.http.routers.3xui-websecure.entrypoints=websecure"
-      - "traefik.http.routers.3xui-websecure.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.3xui-websecure.service=3xui"
-      - "traefik.http.services.3xui.loadbalancer.server.port=2053"
-      - "traefik.docker.network=dokploy-network"
+    # Domain managed via Dokploy UI: dashboard.larastory.com → Port 2053
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:2053/"]
       interval: 30s

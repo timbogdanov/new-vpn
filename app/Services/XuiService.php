@@ -276,12 +276,13 @@ class XuiService
             $network = $streamSettings['network'] ?? 'tcp';
             $security = $streamSettings['security'] ?? 'reality';
 
-            // Get server address from config
-            $serverAddress = config('vpn.primary_domain', $this->host);
+            // Get server address from config (panel_domain has the VPN port exposed)
+            $serverAddress = config('vpn.panel_domain', $this->host);
 
             // Build query parameters
             $params = [
                 'type' => $network,
+                'encryption' => 'none',
                 'security' => $security,
                 'flow' => $client->flow ?? 'xtls-rprx-vision',
             ];
@@ -289,17 +290,22 @@ class XuiService
             // Add Reality settings if applicable
             if ($security === 'reality') {
                 $realitySettings = $streamSettings['realitySettings'] ?? [];
+                $settings = $realitySettings['settings'] ?? [];
+
                 if (!empty($realitySettings['serverNames'][0])) {
                     $params['sni'] = $realitySettings['serverNames'][0];
                 }
-                if (!empty($realitySettings['publicKey'])) {
-                    $params['pbk'] = $realitySettings['publicKey'];
+                if (!empty($settings['publicKey'])) {
+                    $params['pbk'] = $settings['publicKey'];
                 }
                 if (!empty($realitySettings['shortIds'][0])) {
                     $params['sid'] = $realitySettings['shortIds'][0];
                 }
-                if (!empty($realitySettings['fingerprint'])) {
-                    $params['fp'] = $realitySettings['fingerprint'];
+                if (!empty($settings['spiderX'])) {
+                    $params['spx'] = $settings['spiderX'];
+                }
+                if (!empty($settings['fingerprint'])) {
+                    $params['fp'] = $settings['fingerprint'];
                 } else {
                     $params['fp'] = 'chrome';
                 }

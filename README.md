@@ -50,7 +50,7 @@ After deployment:
    - Access `https://dashboard.larastory.com`
    - Login with default credentials (admin/admin)
    - Change the admin password
-   - Create an inbound (VLESS + Reality recommended)
+   - Create an inbound on **port 8443** (VLESS + Reality recommended)
 
 2. **Set Telegram webhook:**
    ```bash

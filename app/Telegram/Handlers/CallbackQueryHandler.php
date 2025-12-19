@@ -168,14 +168,10 @@ class CallbackQueryHandler
             return;
         }
 
-        $message = __('device.vless_link_title') . "\n\n";
-        $message .= "<code>{$vlessLink}</code>\n\n";
-        $message .= __('device.vless_link_hint');
-
+        // Send link as standalone message for easy copying
         $this->telegram->sendMessage([
             'chat_id' => $chatId,
-            'text' => $message,
-            'parse_mode' => 'HTML'
+            'text' => $vlessLink,
         ]);
     }
 

@@ -49,6 +49,56 @@ class LinkService
     }
 
     /**
+     * Get VLESS link from subscription endpoint
+     */
+    public function getVlessLink(VpnClientDTO $client): ?string
+    {
+        try {
+            $subscriptionUrl = $this->subscriptionBaseUrl . '/' . $client->subId;
+
+            $context = stream_context_create([
+                'http' => [
+                    'timeout' => 10,
+                    'ignore_errors' => true,
+                ],
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                ]
+            ]);
+
+            $content = @file_get_contents($subscriptionUrl, false, $context);
+
+            if ($content === false) {
+                return null;
+            }
+
+            // The subscription returns base64 encoded VLESS links
+            $decoded = base64_decode($content);
+
+            if ($decoded === false) {
+                // If not base64, return as-is (might be plain VLESS link)
+                return trim($content);
+            }
+
+            // Get the first VLESS link
+            $lines = explode("\n", $decoded);
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if (str_starts_with($line, 'vless://')) {
+                    return $line;
+                }
+            }
+
+            // Return first line if no vless:// found
+            return trim($lines[0] ?? $content);
+
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
      * Get app download links for each platform
      */
     public function getAppDownloadLinks(): array

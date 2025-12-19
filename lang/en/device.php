@@ -23,4 +23,9 @@ return [
     'back_to_devices' => 'Other Devices',
 
     'verify_hint' => 'After connecting, verify your connection at',
+
+    'copy_vless_link' => 'Copy VLESS Link',
+    'vless_link_title' => 'Your VLESS connection link:',
+    'vless_link_hint' => 'Tap the link above to copy it, then paste it in your VPN app.',
+    'vless_link_error' => 'Could not retrieve VLESS link. Please try again later.',
 ];

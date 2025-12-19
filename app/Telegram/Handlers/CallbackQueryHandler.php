@@ -49,6 +49,7 @@ class CallbackQueryHandler
                 'device_apple' => $this->handleDevice($chatId, $messageId, $telegramId, 'apple'),
                 'device_android' => $this->handleDevice($chatId, $messageId, $telegramId, 'android'),
                 'device_windows' => $this->handleDevice($chatId, $messageId, $telegramId, 'windows'),
+                'show_vless_link' => $this->handleShowVlessLink($chatId, $telegramId),
                 'profile' => $this->handleProfile($chatId, $messageId, $telegramId),
                 'select_language' => $this->handleSelectLanguage($chatId, $messageId),
                 'set_language_ru' => $this->handleSetLanguage($chatId, $messageId, $telegramId, 'ru'),
@@ -126,6 +127,9 @@ class CallbackQueryHandler
                 ['text' => __('device.auto_connect'), 'url' => $links['redirectUrl']],
             ],
             [
+                ['text' => __('device.copy_vless_link'), 'callback_data' => 'show_vless_link'],
+            ],
+            [
                 ['text' => __('device.back_to_devices'), 'callback_data' => 'back_to_devices'],
                 ['text' => __('menu.back'), 'callback_data' => 'back_to_menu'],
             ]
@@ -137,6 +141,41 @@ class CallbackQueryHandler
             'text' => $message,
             'parse_mode' => 'HTML',
             'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+    }
+
+    private function handleShowVlessLink(int $chatId, int $telegramId): void
+    {
+        $client = $this->xuiService->getClientByTelegramId($telegramId);
+
+        if (!$client) {
+            $this->telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => __('profile.no_account'),
+                'parse_mode' => 'HTML'
+            ]);
+            return;
+        }
+
+        $vlessLink = $this->linkService->getVlessLink($client);
+
+        if (!$vlessLink) {
+            $this->telegram->sendMessage([
+                'chat_id' => $chatId,
+                'text' => __('device.vless_link_error'),
+                'parse_mode' => 'HTML'
+            ]);
+            return;
+        }
+
+        $message = __('device.vless_link_title') . "\n\n";
+        $message .= "<code>{$vlessLink}</code>\n\n";
+        $message .= __('device.vless_link_hint');
+
+        $this->telegram->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message,
+            'parse_mode' => 'HTML'
         ]);
     }
 

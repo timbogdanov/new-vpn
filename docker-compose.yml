@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  laravel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: larastory-laravel
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    volumes:
+      - laravel_storage:/var/www/html/storage
+      - laravel_logs:/var/www/html/storage/logs
+    environment:
+      - APP_NAME=${APP_NAME:-LarastoryVPN}
+      - APP_ENV=${APP_ENV:-production}
+      - APP_KEY=${APP_KEY}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_URL=${APP_URL:-https://larastory.com}
+      - LOG_CHANNEL=stack
+      - LOG_LEVEL=info
+      - DB_CONNECTION=sqlite
+      # 3x-ui Configuration
+      - XUI_HOST=${XUI_HOST:-3x-ui}
+      - XUI_PORT=${XUI_PORT:-2053}
+      - XUI_PATH=${XUI_PATH:-}
+      - XUI_USERNAME=${XUI_USERNAME}
+      - XUI_PASSWORD=${XUI_PASSWORD}
+      - XUI_INBOUND_ID=${XUI_INBOUND_ID:-1}
+      # Telegram Configuration
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      # Domain Configuration (for quick switching)
+      - VPN_PRIMARY_DOMAIN=${VPN_PRIMARY_DOMAIN:-larastory.com}
+      - VPN_PANEL_DOMAIN=${VPN_PANEL_DOMAIN:-dashboard.larastory.com}
+      - VPN_SUBSCRIPTION_PORT=${VPN_SUBSCRIPTION_PORT:-2096}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.larastory-laravel.rule=Host(`${VPN_PRIMARY_DOMAIN:-larastory.com}`)"
+      - "traefik.http.routers.larastory-laravel.entrypoints=https"
+      - "traefik.http.routers.larastory-laravel.tls=true"
+      - "traefik.http.routers.larastory-laravel.tls.certresolver=letsencrypt"
+      - "traefik.http.services.larastory-laravel.loadbalancer.server.port=80"
+      - "traefik.docker.network=dokploy-network"
+    depends_on:
+      - 3x-ui
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  3x-ui:
+    image: ghcr.io/mhsanaei/3x-ui:latest
+    container_name: larastory-3xui
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    volumes:
+      - xui_db:/etc/x-ui
+      - xui_certs:/root/cert
+    environment:
+      - XRAY_VMESS_AEAD_FORCED=false
+    ports:
+      # VPN ports - adjust based on your inbound configuration
+      - "443:443"
+      - "2096:2096"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.larastory-3xui.rule=Host(`${VPN_PANEL_DOMAIN:-dashboard.larastory.com}`)"
+      - "traefik.http.routers.larastory-3xui.entrypoints=https"
+      - "traefik.http.routers.larastory-3xui.tls=true"
+      - "traefik.http.routers.larastory-3xui.tls.certresolver=letsencrypt"
+      - "traefik.http.services.larastory-3xui.loadbalancer.server.port=2053"
+      - "traefik.docker.network=dokploy-network"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2053/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  laravel_storage:
+  laravel_logs:
+  xui_db:
+  xui_certs:
+
+networks:
+  dokploy-network:
+    external: true

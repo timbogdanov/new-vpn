@@ -35,7 +35,7 @@ class XuiService
     /**
      * Get or create VPN client by Telegram ID
      */
-    public function getOrCreateClient(int $telegramId): VpnClientDTO
+    public function getOrCreateClient(int $telegramId, ?string $firstName = null, ?string $lastName = null): VpnClientDTO
     {
         $existing = $this->getClientByTelegramId($telegramId);
 
@@ -43,7 +43,7 @@ class XuiService
             return $existing;
         }
 
-        return $this->createClient($telegramId);
+        return $this->createClient($telegramId, $firstName, $lastName);
     }
 
     /**
@@ -63,13 +63,35 @@ class XuiService
     }
 
     /**
+     * Generate client email from Telegram name and UUID
+     */
+    private function generateClientEmail(string $uuid, ?string $firstName = null, ?string $lastName = null): string
+    {
+        $shortUuid = substr($uuid, 0, 8);
+
+        if ($firstName) {
+            $name = trim($firstName . ($lastName ? ' ' . $lastName : ''));
+            // Sanitize: keep letters, numbers, spaces, and common characters
+            $name = preg_replace('/[^\p{L}\p{N}\s\-_.]/u', '', $name);
+            $name = trim($name);
+
+            if (!empty($name)) {
+                return $name . '-' . $shortUuid;
+            }
+        }
+
+        // Fallback if no valid name
+        return 'user-' . $shortUuid;
+    }
+
+    /**
      * Create a new VPN client
      */
-    public function createClient(int $telegramId): VpnClientDTO
+    public function createClient(int $telegramId, ?string $firstName = null, ?string $lastName = null): VpnClientDTO
     {
         $uuid = (string) Str::uuid();
         $subId = Str::random(16);
-        $clientEmail = 'tg_' . $telegramId . '_' . Str::random(6);
+        $clientEmail = $this->generateClientEmail($uuid, $firstName, $lastName);
 
         $payload = [
             'id' => $this->inboundId,
@@ -132,6 +154,69 @@ class XuiService
             download: $data['down'] ?? 0,
             expiryTime: $data['expiryTime'] ?? 0
         );
+    }
+
+    /**
+     * Update a client's email/name in XUI
+     */
+    public function updateClient(string $currentEmail, string $newEmail): bool
+    {
+        $payload = [
+            'id' => $this->inboundId,
+            'settings' => json_encode([
+                'clients' => [[
+                    'email' => $currentEmail,
+                ]]
+            ])
+        ];
+
+        // First get the client to preserve all settings
+        $clients = $this->getAllClients();
+        $client = null;
+        foreach ($clients as $c) {
+            if ($c->email === $currentEmail) {
+                $client = $c;
+                break;
+            }
+        }
+
+        if (!$client) {
+            Log::warning('XUI: Client not found for update', ['email' => $currentEmail]);
+            return false;
+        }
+
+        // Build update payload with new email
+        $payload = [
+            'id' => $this->inboundId,
+            'settings' => json_encode([
+                'clients' => [[
+                    'id' => $client->uuid,
+                    'flow' => 'xtls-rprx-vision',
+                    'email' => $newEmail,
+                    'tgId' => (string) $client->telegramId,
+                    'limitIp' => config('vpn.default_device_limit', 2),
+                    'totalGB' => $client->totalGB,
+                    'expiryTime' => $client->expiryTime,
+                    'enable' => $client->enabled,
+                    'subId' => $client->subId,
+                    'reset' => 0,
+                ]]
+            ])
+        ];
+
+        $response = $this->makeRequest('POST', "panel/api/inbounds/updateClient/{$client->uuid}", $payload);
+
+        if (!($response['success'] ?? false)) {
+            Log::error('XUI: Failed to update client', [
+                'currentEmail' => $currentEmail,
+                'newEmail' => $newEmail,
+                'response' => $response
+            ]);
+            return false;
+        }
+
+        Log::info('XUI: Updated client name', ['from' => $currentEmail, 'to' => $newEmail]);
+        return true;
     }
 
     /**

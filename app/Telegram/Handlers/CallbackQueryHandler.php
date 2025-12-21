@@ -30,6 +30,8 @@ class CallbackQueryHandler
         $chatId = $callbackQuery->getMessage()->getChat()->getId();
         $messageId = $callbackQuery->getMessage()->getMessageId();
         $telegramId = $callbackQuery->getFrom()->getId();
+        $firstName = $callbackQuery->getFrom()->getFirstName();
+        $lastName = $callbackQuery->getFrom()->getLastName();
 
         // Debounce protection
         $cacheKey = "callback_{$telegramId}_{$data}";
@@ -46,9 +48,9 @@ class CallbackQueryHandler
         try {
             match ($data) {
                 'choose_device' => $this->handleChooseDevice($chatId, $messageId),
-                'device_apple' => $this->handleDevice($chatId, $messageId, $telegramId, 'apple'),
-                'device_android' => $this->handleDevice($chatId, $messageId, $telegramId, 'android'),
-                'device_windows' => $this->handleDevice($chatId, $messageId, $telegramId, 'windows'),
+                'device_apple' => $this->handleDevice($chatId, $messageId, $telegramId, 'apple', $firstName, $lastName),
+                'device_android' => $this->handleDevice($chatId, $messageId, $telegramId, 'android', $firstName, $lastName),
+                'device_windows' => $this->handleDevice($chatId, $messageId, $telegramId, 'windows', $firstName, $lastName),
                 'show_vless_link' => $this->handleShowVlessLink($chatId, $telegramId),
                 'profile' => $this->handleProfile($chatId, $messageId, $telegramId),
                 'select_language' => $this->handleSelectLanguage($chatId, $messageId),
@@ -95,12 +97,12 @@ class CallbackQueryHandler
         ]);
     }
 
-    private function handleDevice(int $chatId, int $messageId, int $telegramId, string $device): void
+    private function handleDevice(int $chatId, int $messageId, int $telegramId, string $device, ?string $firstName = null, ?string $lastName = null): void
     {
         $client = $this->xuiService->getClientByTelegramId($telegramId);
 
         if (!$client) {
-            $client = $this->xuiService->createClient($telegramId);
+            $client = $this->xuiService->createClient($telegramId, $firstName, $lastName);
         }
 
         $links = $this->linkService->createLinks($client, $device);

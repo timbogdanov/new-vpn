@@ -79,6 +79,7 @@ class TelegramWebhookController extends Controller
         $message = $update->getMessage();
         $telegramId = $message->getFrom()->getId();
         $firstName = $message->getFrom()->getFirstName();
+        $lastName = $message->getFrom()->getLastName();
         $chatId = $message->getChat()->getId();
 
         // Get user language preference
@@ -88,7 +89,7 @@ class TelegramWebhookController extends Controller
         try {
             // Get or create VPN client
             $xuiService = app(XuiService::class);
-            $client = $xuiService->getOrCreateClient($telegramId);
+            $client = $xuiService->getOrCreateClient($telegramId, $firstName, $lastName);
 
             Log::info('User started bot', [
                 'telegramId' => $telegramId,

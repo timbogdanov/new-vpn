@@ -136,6 +136,7 @@ class TelegramWebhookController extends Controller
                 ['text' => __('menu.profile'), 'callback_data' => 'profile'],
             ],
             [
+                ['text' => __('menu.speed_test'), 'callback_data' => 'speed_test'],
                 ['text' => __('menu.language'), 'callback_data' => 'select_language'],
             ]
         ];

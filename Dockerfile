@@ -13,7 +13,12 @@ RUN apk add --no-cache \
     unzip \
     git \
     sqlite \
-    sqlite-dev
+    sqlite-dev \
+    python3 \
+    py3-pip
+
+# Install Python speedtest-cli
+RUN pip3 install --break-system-packages speedtest-cli
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \

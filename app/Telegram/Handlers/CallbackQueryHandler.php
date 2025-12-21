@@ -3,6 +3,7 @@
 namespace App\Telegram\Handlers;
 
 use App\Services\LinkService;
+use App\Services\SpeedTestService;
 use App\Services\XuiService;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
@@ -15,12 +16,14 @@ class CallbackQueryHandler
     private Api $telegram;
     private XuiService $xuiService;
     private LinkService $linkService;
+    private SpeedTestService $speedTestService;
 
-    public function __construct(Api $telegram, XuiService $xuiService, LinkService $linkService)
+    public function __construct(Api $telegram, XuiService $xuiService, LinkService $linkService, SpeedTestService $speedTestService)
     {
         $this->telegram = $telegram;
         $this->xuiService = $xuiService;
         $this->linkService = $linkService;
+        $this->speedTestService = $speedTestService;
     }
 
     public function handle(Update $update): void
@@ -53,6 +56,7 @@ class CallbackQueryHandler
                 'device_windows' => $this->handleDevice($chatId, $messageId, $telegramId, 'windows', $firstName, $lastName),
                 'show_vless_link' => $this->handleShowVlessLink($chatId, $telegramId),
                 'profile' => $this->handleProfile($chatId, $messageId, $telegramId),
+                'speed_test' => $this->handleSpeedTest($chatId, $messageId),
                 'select_language' => $this->handleSelectLanguage($chatId, $messageId),
                 'set_language_ru' => $this->handleSetLanguage($chatId, $messageId, $telegramId, 'ru'),
                 'set_language_en' => $this->handleSetLanguage($chatId, $messageId, $telegramId, 'en'),
@@ -225,6 +229,52 @@ class CallbackQueryHandler
         ]);
     }
 
+    private function handleSpeedTest(int $chatId, int $messageId): void
+    {
+        // Show loading message
+        $this->telegram->editMessageText([
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'text' => __('speed_test.testing'),
+            'parse_mode' => 'HTML',
+        ]);
+
+        $result = $this->speedTestService->runTest();
+
+        if (!$result) {
+            $this->telegram->editMessageText([
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => __('speed_test.error'),
+                'parse_mode' => 'HTML',
+                'reply_markup' => json_encode([
+                    'inline_keyboard' => [
+                        [['text' => __('menu.back'), 'callback_data' => 'back_to_menu']]
+                    ]
+                ])
+            ]);
+            return;
+        }
+
+        $message = "<b>" . __('speed_test.title') . "</b>\n\n";
+        $message .= __('speed_test.download') . ": {$result->getFormattedDownload()}\n";
+        $message .= __('speed_test.upload') . ": {$result->getFormattedUpload()}\n";
+        $message .= __('speed_test.ping') . ": {$result->getFormattedPing()}\n\n";
+        $message .= "<i>" . __('speed_test.tested_at', ['time' => $result->getTestedAgo()]) . "</i>";
+
+        $this->telegram->editMessageText([
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'text' => $message,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => [
+                    [['text' => __('menu.back'), 'callback_data' => 'back_to_menu']]
+                ]
+            ])
+        ]);
+    }
+
     private function handleSelectLanguage(int $chatId, int $messageId): void
     {
         $this->telegram->editMessageText([
@@ -268,6 +318,7 @@ class CallbackQueryHandler
                         ['text' => __('menu.profile'), 'callback_data' => 'profile'],
                     ],
                     [
+                        ['text' => __('menu.speed_test'), 'callback_data' => 'speed_test'],
                         ['text' => __('menu.language'), 'callback_data' => 'select_language'],
                     ]
                 ]

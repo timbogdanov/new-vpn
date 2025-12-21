@@ -7,6 +7,7 @@ return [
     'main_menu' => 'Main Menu',
     'connect' => 'Connect',
     'profile' => 'Profile',
+    'speed_test' => 'Speed Test',
     'language' => 'Language',
     'back' => 'Back',
 

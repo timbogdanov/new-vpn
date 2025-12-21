@@ -7,6 +7,7 @@ return [
     'main_menu' => 'Главное меню',
     'connect' => 'Подключиться',
     'profile' => 'Профиль',
+    'speed_test' => 'Тест скорости',
     'language' => 'Язык',
     'back' => 'Назад',
 

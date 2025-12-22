@@ -57,6 +57,7 @@ class CallbackQueryHandler
                 'show_vless_link' => $this->handleShowVlessLink($chatId, $telegramId),
                 'profile' => $this->handleProfile($chatId, $messageId, $telegramId),
                 'speed_test' => $this->handleSpeedTest($chatId, $messageId),
+                'check_protection' => $this->handleCheckProtection($chatId, $messageId, $telegramId),
                 'select_language' => $this->handleSelectLanguage($chatId, $messageId),
                 'set_language_ru' => $this->handleSetLanguage($chatId, $messageId, $telegramId, 'ru'),
                 'set_language_en' => $this->handleSetLanguage($chatId, $messageId, $telegramId, 'en'),
@@ -275,6 +276,31 @@ class CallbackQueryHandler
         ]);
     }
 
+    private function handleCheckProtection(int $chatId, int $messageId, int $telegramId): void
+    {
+        $checkUrl = config('app.url') . '/check-ip?uid=' . $telegramId;
+
+        $text = "<b>" . __('ip_check.check_title') . "</b>\n\n";
+        $text .= __('ip_check.check_description');
+
+        $this->telegram->editMessageText([
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'text' => $text,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => [
+                    [
+                        ['text' => __('ip_check.check_button'), 'url' => $checkUrl],
+                    ],
+                    [
+                        ['text' => __('menu.back'), 'callback_data' => 'back_to_menu'],
+                    ]
+                ]
+            ])
+        ]);
+    }
+
     private function handleSelectLanguage(int $chatId, int $messageId): void
     {
         $this->telegram->editMessageText([
@@ -316,6 +342,9 @@ class CallbackQueryHandler
                     [
                         ['text' => __('menu.connect'), 'callback_data' => 'choose_device'],
                         ['text' => __('menu.profile'), 'callback_data' => 'profile'],
+                    ],
+                    [
+                        ['text' => __('menu.check_protection'), 'callback_data' => 'check_protection'],
                     ],
                     [
                         ['text' => __('menu.speed_test'), 'callback_data' => 'speed_test'],

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\IpCheckController;
 use App\Http\Controllers\TelegramWebhookController;
 use App\Http\Controllers\VpnRedirectController;
 use Illuminate\Support\Facades\Route;
@@ -17,6 +18,9 @@ Route::get('/health', function () {
 
 // VPN redirect route - redirects to VPN app with subscription link
 Route::get('/vpn-link', [VpnRedirectController::class, 'redirect']);
+
+// IP check route - captures user IP and redirects back to bot
+Route::get('/check-ip', [IpCheckController::class, 'check']);
 
 // Telegram webhook
 Route::post('/telegram/webhook', [TelegramWebhookController::class, 'handle']);

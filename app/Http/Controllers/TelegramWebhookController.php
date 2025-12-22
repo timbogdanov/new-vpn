@@ -47,7 +47,15 @@ class TelegramWebhookController extends Controller
                     $text = $message->getText();
 
                     if (str_starts_with($text, '/start')) {
-                        $this->handleStartCommand($update);
+                        // Check for deep link parameters
+                        $parts = explode(' ', $text, 2);
+                        $param = $parts[1] ?? null;
+
+                        if ($param && str_starts_with($param, 'ipcheck_')) {
+                            $this->handleIpCheckResult($update, $param);
+                        } else {
+                            $this->handleStartCommand($update);
+                        }
                         return response('OK', 200);
                     }
                 }
@@ -122,6 +130,95 @@ class TelegramWebhookController extends Controller
         }
     }
 
+    private function handleIpCheckResult(Update $update, string $param): void
+    {
+        $message = $update->getMessage();
+        $chatId = $message->getChat()->getId();
+        $telegramId = $message->getFrom()->getId();
+
+        // Set user language
+        $language = Cache::get("lang_{$telegramId}", 'ru');
+        App::setLocale($language);
+
+        // Parse param: ipcheck_{uid}_{token}
+        $parts = explode('_', $param);
+        if (count($parts) < 3) {
+            $this->sendIpCheckError($chatId);
+            return;
+        }
+
+        $uid = $parts[1];
+        $token = $parts[2];
+
+        // Handle error token
+        if ($token === 'error') {
+            $this->sendIpCheckError($chatId);
+            return;
+        }
+
+        // Get cached result
+        $result = Cache::get("ip_check_{$uid}_{$token}");
+
+        if (!$result) {
+            $this->sendIpCheckError($chatId, true);
+            return;
+        }
+
+        // Build response message
+        if ($result->isProtected) {
+            $statusIcon = "\u{2705}"; // ✅
+            $statusText = __('ip_check.protected');
+            $statusDesc = __('ip_check.protected_desc');
+        } else {
+            $statusIcon = "\u{26A0}\u{FE0F}"; // ⚠️
+            $statusText = __('ip_check.not_protected');
+            $statusDesc = __('ip_check.not_protected_desc');
+        }
+
+        $text = "<b>" . __('ip_check.title') . "</b>\n\n";
+        $text .= __('ip_check.ip') . ": <code>{$result->getMaskedIp()}</code>\n";
+        $text .= __('ip_check.location') . ": {$result->city}, {$result->country} {$result->getFlag()}\n";
+        $text .= __('ip_check.isp') . ": {$result->isp}\n\n";
+        $text .= "{$statusIcon} <b>{$statusText}</b>\n";
+        $text .= $statusDesc;
+
+        $keyboard = [
+            [['text' => __('menu.back'), 'callback_data' => 'back_to_menu']]
+        ];
+
+        // Add "Connect Now" button if not protected
+        if (!$result->isProtected) {
+            $keyboard = [
+                [['text' => __('ip_check.connect_now'), 'callback_data' => 'choose_device']],
+                [['text' => __('menu.back'), 'callback_data' => 'back_to_menu']]
+            ];
+        }
+
+        $this->telegram->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $text,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+    }
+
+    private function sendIpCheckError(int $chatId, bool $expired = false): void
+    {
+        $text = $expired ? __('ip_check.expired') : __('ip_check.error');
+
+        $this->telegram->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $text,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => [
+                    [['text' => __('ip_check.try_again'), 'callback_data' => 'check_protection']],
+                    [['text' => __('menu.back'), 'callback_data' => 'back_to_menu']]
+                ]
+            ])
+        ]);
+    }
+
     private function getWelcomeMessage(string $firstName): string
     {
         return __('menu.welcome', ['name' => $firstName]) . "\n\n" .
@@ -134,6 +231,9 @@ class TelegramWebhookController extends Controller
             [
                 ['text' => __('menu.connect'), 'callback_data' => 'choose_device'],
                 ['text' => __('menu.profile'), 'callback_data' => 'profile'],
+            ],
+            [
+                ['text' => __('menu.check_protection'), 'callback_data' => 'check_protection'],
             ],
             [
                 ['text' => __('menu.speed_test'), 'callback_data' => 'speed_test'],

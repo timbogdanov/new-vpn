@@ -50,27 +50,36 @@ class IpCheckController extends Controller
 
     private function getClientIp(Request $request): string
     {
-        // Check for forwarded headers (behind proxy/load balancer)
-        $headers = [
-            'HTTP_CF_CONNECTING_IP',     // Cloudflare
-            'HTTP_X_FORWARDED_FOR',      // Standard proxy
-            'HTTP_X_REAL_IP',            // Nginx
-            'REMOTE_ADDR',               // Direct connection
-        ];
+        // Log all relevant headers for debugging
+        Log::debug('IP Check headers', [
+            'X-Forwarded-For' => $request->header('X-Forwarded-For'),
+            'X-Real-IP' => $request->header('X-Real-IP'),
+            'CF-Connecting-IP' => $request->header('CF-Connecting-IP'),
+            'request_ip' => $request->ip(),
+        ]);
 
-        foreach ($headers as $header) {
-            $ip = $request->server($header);
-            if ($ip) {
-                // X-Forwarded-For can contain multiple IPs, get the first one
-                if (str_contains($ip, ',')) {
-                    $ip = trim(explode(',', $ip)[0]);
-                }
-                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                    return $ip;
-                }
+        // Check for forwarded headers (behind proxy/load balancer)
+        // Try headers in order of preference
+        $forwardedFor = $request->header('X-Forwarded-For');
+        if ($forwardedFor) {
+            // X-Forwarded-For can contain multiple IPs, get the first (original client)
+            $ip = trim(explode(',', $forwardedFor)[0]);
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
             }
         }
 
+        $realIp = $request->header('X-Real-IP');
+        if ($realIp && filter_var($realIp, FILTER_VALIDATE_IP)) {
+            return $realIp;
+        }
+
+        $cfIp = $request->header('CF-Connecting-IP');
+        if ($cfIp && filter_var($cfIp, FILTER_VALIDATE_IP)) {
+            return $cfIp;
+        }
+
+        // Fallback to Laravel's detected IP
         return $request->ip() ?? '0.0.0.0';
     }
 

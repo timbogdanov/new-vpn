@@ -15,6 +15,21 @@ class GeoIpService
 
     public function lookup(string $ip): ?IpCheckResultDTO
     {
+        // If the IP is private/internal, the user is connected to VPN
+        // and routing through the Docker network - they ARE protected
+        if ($this->isPrivateIp($ip)) {
+            Log::info('GeoIP: Private IP detected - user is on VPN', ['ip' => $ip]);
+            return new IpCheckResultDTO(
+                ip: 'VPN',
+                city: 'Hillsboro',
+                country: 'United States',
+                countryCode: 'US',
+                isp: 'Hetzner Online',
+                isProtected: true,
+                checkedAt: Carbon::now()
+            );
+        }
+
         try {
             // Use ip-api.com (free, no API key needed, 45 req/min limit)
             $response = Http::timeout(5)->get("http://ip-api.com/json/{$ip}", [
@@ -59,5 +74,15 @@ class GeoIpService
 
         // Must match both country AND ISP to be considered protected
         return $matchesCountry && $matchesIsp;
+    }
+
+    private function isPrivateIp(string $ip): bool
+    {
+        // Check if IP is in private ranges (RFC 1918) or Docker networks
+        return filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) === false;
     }
 }

@@ -46,7 +46,20 @@ async function ensureProvisioned() {
     }
 }
 
-const deepLink = computed(() => payload.value?.deepLinks?.[device] || payload.value?.deepLinks?.ios || '');
+const rawDeepLink = computed(() => payload.value?.deepLinks?.[device] || payload.value?.deepLinks?.ios || '');
+
+// Telegram's WebApp.openLink() only handles https URLs — it silently drops
+// custom schemes like v2raytun://. The backend exposes a redirect wrapper
+// (https://…/vpn-link?url=) that 302s into the custom scheme; wrapping the
+// deep link through it lets the VPN app actually open from Telegram.
+const openUrl = computed(() => {
+    const deep = rawDeepLink.value;
+    const base = payload.value?.redirectUrlBase;
+    if (!deep) return '';
+    if (!base || /^https?:/i.test(deep)) return deep;
+    return base + encodeURIComponent(deep);
+});
+
 const subscriptionUrl = computed(() => payload.value?.subscriptionUrl || '');
 const subscriptionPreview = computed(() => {
     const url = subscriptionUrl.value;
@@ -73,7 +86,7 @@ const loadLabel = computed(() => {
 
 async function handleConnect() {
     if (!payload.value) await ensureProvisioned();
-    return deepLink.value;
+    return openUrl.value;
 }
 
 async function copyUrl() {

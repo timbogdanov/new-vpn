@@ -59,8 +59,14 @@ if ($parsed === null) {
             'xui_path' => env('XUI_PATH', ''),
             'xui_username' => env('XUI_USERNAME'),
             'xui_password' => env('XUI_PASSWORD'),
-            'subscription_host' => env('VPN_PANEL_DOMAIN', 'dashboard.larastory.com'),
-            'subscription_port' => (int) env('VPN_SUBSCRIPTION_PORT', 2096),
+            // Subscription endpoint must be a real TLS origin with a valid cert
+            // (VPN apps use iOS URLSession / equivalent that refuses self-signed
+            // or plaintext hosts). We front the 3x-ui subscription listener
+            // behind `larastory.com`'s Let's Encrypt TLS via the nginx `/sub/`
+            // proxy in `docker/nginx/default.conf`. Override with
+            // `VPN_SUBSCRIPTION_HOST` if a dedicated subdomain is needed.
+            'subscription_host' => env('VPN_SUBSCRIPTION_HOST', env('VPN_PRIMARY_DOMAIN', 'larastory.com')),
+            'subscription_port' => (int) env('VPN_SUBSCRIPTION_PORT', 443),
             'is_active' => true,
             'is_coming_soon' => false,
             'capacity_clients' => 500,

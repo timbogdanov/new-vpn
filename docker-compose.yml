@@ -51,7 +51,7 @@ services:
 
   3x-ui:
     # Pinned tag — stops `:latest` drift from silently changing API field names.
-    image: ghcr.io/mhsanaei/3x-ui:v2.5.0
+    image: ghcr.io/mhsanaei/3x-ui:v2.8.11
     restart: unless-stopped
     tty: true
     networks:

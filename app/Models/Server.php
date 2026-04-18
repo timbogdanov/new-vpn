@@ -94,7 +94,9 @@ class Server extends Model
 
     public function subscriptionBaseUrl(): string
     {
-        $host = $this->subscription_host ?: $this->xui_host ?: $this->host;
+        // Must be the public primary domain — xui_host is the internal docker
+        // service name (e.g. `3x-ui`), never reachable by end users.
+        $host = $this->subscription_host ?: config('vpn.primary_domain');
         $port = $this->subscription_port ?: config('vpn.subscription_port', 2096);
 
         $portSegment = (int) $port === 443 ? '' : ':' . $port;

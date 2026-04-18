@@ -2,122 +2,39 @@
 
 namespace App\Services;
 
-use App\DTO\VpnClientDTO;
+use App\Models\Server;
+use App\Models\VpnClient;
 
 class LinkService
 {
-    private string $redirectUrl;
-    private string $subscriptionBaseUrl;
-
-    public function __construct()
+    public function createLinks(VpnClient $client, Server $server, string $device = 'ios'): array
     {
-        $primaryDomain = config('vpn.primary_domain');
-        $panelDomain = config('vpn.panel_domain');
-        $subscriptionPort = config('vpn.subscription_port');
-
-        $this->redirectUrl = "https://{$primaryDomain}/vpn-link";
-        $this->subscriptionBaseUrl = "https://{$panelDomain}:{$subscriptionPort}/sub";
-    }
-
-    /**
-     * Create device-specific connection links
-     */
-    public function createLinks(VpnClientDTO $client, string $device = 'apple'): array
-    {
-        $subscriptionUrl = $this->subscriptionBaseUrl . '/' . $client->subId;
+        $subscriptionUrl = $this->subscriptionUrlFor($client, $server);
         $encodedUrl = rawurlencode($subscriptionUrl);
+        $device = strtolower($device);
 
-        $importLink = match (strtolower($device)) {
-            'android' => "v2raytun://import-sub?url={$encodedUrl}",
-            'windows' => "hiddify://import/{$encodedUrl}",
-            default => "v2raytun://import/{$encodedUrl}", // Apple
-        };
+        $schemes = (array) config('miniapp.deep_link_schemes', []);
+        $template = $schemes[$device] ?? $schemes['unknown'] ?? 'v2raytun://import/{url}';
+        $importLink = str_replace('{url}', $encodedUrl, $template);
+
+        $primaryDomain = (string) config('vpn.primary_domain');
+        $redirectUrl = "https://{$primaryDomain}/vpn-link?url=" . rawurlencode($importLink);
 
         return [
             'subscriptionUrl' => $subscriptionUrl,
             'importLink' => $importLink,
-            'redirectUrl' => $this->redirectUrl . '?url=' . rawurlencode($importLink),
+            'redirectUrl' => $redirectUrl,
+            'device' => $device,
         ];
     }
 
-    /**
-     * Get QR code data for subscription URL
-     */
-    public function getQrCodeData(VpnClientDTO $client): string
+    public function subscriptionUrlFor(VpnClient $client, Server $server): string
     {
-        return $this->subscriptionBaseUrl . '/' . $client->subId;
+        return rtrim($server->subscriptionBaseUrl(), '/') . '/' . $client->sub_id;
     }
 
-    /**
-     * Get VLESS link from subscription endpoint
-     */
-    public function getVlessLink(VpnClientDTO $client): ?string
+    public function appStoreLinks(): array
     {
-        try {
-            $subscriptionUrl = $this->subscriptionBaseUrl . '/' . $client->subId;
-
-            $context = stream_context_create([
-                'http' => [
-                    'timeout' => 10,
-                    'ignore_errors' => true,
-                ],
-                'ssl' => [
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                ]
-            ]);
-
-            $content = @file_get_contents($subscriptionUrl, false, $context);
-
-            if ($content === false) {
-                return null;
-            }
-
-            // The subscription returns base64 encoded VLESS links
-            $decoded = base64_decode($content);
-
-            if ($decoded === false) {
-                // If not base64, return as-is (might be plain VLESS link)
-                return trim($content);
-            }
-
-            // Get the first VLESS link
-            $lines = explode("\n", $decoded);
-            foreach ($lines as $line) {
-                $line = trim($line);
-                if (str_starts_with($line, 'vless://')) {
-                    return $line;
-                }
-            }
-
-            // Return first line if no vless:// found
-            return trim($lines[0] ?? $content);
-
-        } catch (\Exception $e) {
-            return null;
-        }
-    }
-
-    /**
-     * Get app download links for each platform
-     */
-    public function getAppDownloadLinks(): array
-    {
-        return [
-            'apple' => 'https://apps.apple.com/app/v2raytun/id6476628951',
-            'android' => 'https://play.google.com/store/apps/details?id=com.v2raytun.android',
-            'windows' => 'https://github.com/hiddify/hiddify-app/releases/latest',
-        ];
-    }
-
-    /**
-     * Get the current configuration
-     */
-    public function getConfig(): array
-    {
-        return [
-            'redirectUrl' => $this->redirectUrl,
-            'subscriptionBaseUrl' => $this->subscriptionBaseUrl,
-        ];
+        return (array) config('miniapp.app_store_links', []);
     }
 }

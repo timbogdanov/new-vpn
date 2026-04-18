@@ -2,8 +2,11 @@
 
 return [
     'welcome' => 'Hello, <b>:name</b>!',
-    'welcome_description' => 'Welcome to your VPN service. Use the buttons below to connect or view your profile.',
+    'welcome_description' => "Tap below to open the app. Pick a server, import in one tap — no copy-paste, no friction.",
 
+    'open_app' => 'Open App',
+
+    // Kept for any lingering legacy messages
     'main_menu' => 'Main Menu',
     'connect' => 'Connect',
     'profile' => 'Profile',
@@ -12,8 +15,5 @@ return [
     'language' => 'Language',
     'back' => 'Back',
 
-    'select_language' => 'Select your language:',
-    'language_changed' => 'Language changed successfully!',
-
-    'error_occurred' => 'An error occurred. Please try again.',
+    'error_occurred' => 'Something went wrong. Please try again.',
 ];

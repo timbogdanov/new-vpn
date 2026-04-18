@@ -9,29 +9,38 @@ services:
     volumes:
       - laravel_storage:/var/www/html/storage
       - laravel_logs:/var/www/html/storage/logs
+      - laravel_db:/var/www/html/database
     environment:
       - APP_NAME=${APP_NAME:-LarastoryVPN}
       - APP_ENV=${APP_ENV:-production}
       - APP_KEY=${APP_KEY}
       - APP_DEBUG=${APP_DEBUG:-false}
       - APP_URL=${APP_URL:-https://larastory.com}
+      - APP_LOCALE=${APP_LOCALE:-ru}
+      - APP_FALLBACK_LOCALE=${APP_FALLBACK_LOCALE:-en}
       - LOG_CHANNEL=stack
       - LOG_LEVEL=info
       - DB_CONNECTION=sqlite
-      # 3x-ui Configuration
+      # Legacy 3x-ui env — used as a fallback by ServerSeeder when SERVERS_JSON is empty.
       - XUI_HOST=${XUI_HOST:-3x-ui}
       - XUI_PORT=${XUI_PORT:-2053}
       - XUI_PATH=${XUI_PATH:-}
       - XUI_USERNAME=${XUI_USERNAME}
       - XUI_PASSWORD=${XUI_PASSWORD}
       - XUI_INBOUND_ID=${XUI_INBOUND_ID:-1}
-      # Telegram Configuration
+      # Telegram
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      # Domain Configuration (for quick switching)
+      - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
+      # Mini App
+      - MINIAPP_APP_URL=${MINIAPP_APP_URL:-${APP_URL:-https://larastory.com}}
+      - MINIAPP_SUPPORT_URL=${MINIAPP_SUPPORT_URL}
+      - MINIAPP_INIT_DATA_TTL=${MINIAPP_INIT_DATA_TTL:-86400}
+      # Multi-server registry (JSON array; see config/servers.php for shape).
+      - SERVERS_JSON=${SERVERS_JSON:-}
+      # Domain
       - VPN_PRIMARY_DOMAIN=${VPN_PRIMARY_DOMAIN:-larastory.com}
       - VPN_PANEL_DOMAIN=${VPN_PANEL_DOMAIN:-dashboard.larastory.com}
       - VPN_SUBSCRIPTION_PORT=${VPN_SUBSCRIPTION_PORT:-2096}
-    # Domain managed via Dokploy UI: larastory.com → Port 80
     depends_on:
       - 3x-ui
     healthcheck:
@@ -41,7 +50,8 @@ services:
       retries: 3
 
   3x-ui:
-    image: ghcr.io/mhsanaei/3x-ui:latest
+    # Pinned tag — stops `:latest` drift from silently changing API field names.
+    image: ghcr.io/mhsanaei/3x-ui:v2.5.0
     restart: unless-stopped
     tty: true
     networks:
@@ -52,14 +62,13 @@ services:
     environment:
       - XRAY_VMESS_AEAD_FORCED=false
     ports:
-      - "8443:8443"    # VPN connections (VLESS/Reality)
-      - "2096:2096"    # Subscription port
-    # Domain managed via Dokploy UI: dashboard.larastory.com → Port 2053
-    # Note: No healthcheck - panel path is configurable in 3x-ui settings
+      - "8443:8443"
+      - "2096:2096"
 
 volumes:
   laravel_storage:
   laravel_logs:
+  laravel_db:
   xui_db:
   xui_certs:
 

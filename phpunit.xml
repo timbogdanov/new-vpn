@@ -19,6 +19,7 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
@@ -31,5 +32,15 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="TELEGRAM_BOT_TOKEN" value="000000:TEST_TOKEN"/>
+        <env name="TELEGRAM_BOT_USERNAME" value="TestBot"/>
+        <env name="APP_URL" value="https://test.example.com"/>
+        <env name="XUI_HOST" value="xui.test.example.com"/>
+        <env name="XUI_PORT" value="2053"/>
+        <env name="XUI_USERNAME" value="testadmin"/>
+        <env name="XUI_PASSWORD" value="testpass"/>
+        <env name="XUI_INBOUND_ID" value="1"/>
+        <env name="VPN_PRIMARY_DOMAIN" value="test.example.com"/>
+        <env name="VPN_PANEL_DOMAIN" value="panel.test.example.com"/>
     </php>
 </phpunit>

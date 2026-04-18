@@ -1,6 +1,20 @@
+FROM node:22-alpine AS frontend
+
+WORKDIR /build
+
+COPY package.json package-lock.json* ./
+RUN npm install --no-audit --no-fund --loglevel=error
+
+COPY resources ./resources
+COPY vite.config.js ./
+
+RUN npm run build
+
+# ---
+
 FROM php:8.4-fpm-alpine
 
-# Install system dependencies
+# System dependencies
 RUN apk add --no-cache \
     nginx \
     supervisor \
@@ -17,10 +31,10 @@ RUN apk add --no-cache \
     python3 \
     py3-pip
 
-# Install Python speedtest-cli
+# speedtest-cli (used by the in-app Tools → Speed Test)
 RUN pip3 install --break-system-packages speedtest-cli
 
-# Install PHP extensions
+# PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
         pdo \
@@ -30,41 +44,31 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         bcmath \
         opcache
 
-# Install Composer
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Configure nginx
+# Nginx + PHP + Supervisor configs
 COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
-
-# Configure PHP
 COPY docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
-
-# Configure supervisor
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Set working directory
 WORKDIR /var/www/html
 
-# Copy application files
 COPY . .
 
-# Install dependencies
+# Pull Vite-built Mini App assets from the frontend stage.
+COPY --from=frontend /build/public/build ./public/build
+
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Set permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
     && chmod -R 755 /var/www/html/bootstrap/cache
 
-# Create SQLite database file
 RUN touch /var/www/html/database/database.sqlite \
     && chown www-data:www-data /var/www/html/database/database.sqlite
 
-# Cache configuration
-RUN php artisan config:cache || true
-
-# Expose port 80
+# Defer config:cache to startup (needs env vars that aren't baked at build time)
 EXPOSE 80
 
-# Start supervisor
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

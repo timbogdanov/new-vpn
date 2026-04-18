@@ -12,8 +12,8 @@ return [
     |
     */
 
-    'primary_domain' => env('VPN_PRIMARY_DOMAIN', 'larastory.com'),
-    'panel_domain' => env('VPN_PANEL_DOMAIN', 'dashboard.larastory.com'),
+    'primary_domain' => env('VPN_PRIMARY_DOMAIN', 'konnekt-1.xyz'),
+    'panel_domain' => env('VPN_PANEL_DOMAIN', 'dashboard.konnekt-1.xyz'),
     'subscription_port' => env('VPN_SUBSCRIPTION_PORT', '2096'),
 
     /*

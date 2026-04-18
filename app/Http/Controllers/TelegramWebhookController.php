@@ -103,7 +103,7 @@ class TelegramWebhookController extends Controller
 
     private function openAppText(?string $firstName = null): string
     {
-        $appName = config('app.name', 'Larastory VPN');
+        $appName = config('app.name', 'Konnekt VPN');
         $greet = $firstName
             ? __('menu.welcome', ['name' => $firstName])
             : $appName;

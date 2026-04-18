@@ -11,11 +11,11 @@ services:
       - laravel_logs:/var/www/html/storage/logs
       - laravel_db:/var/www/html/database
     environment:
-      - APP_NAME=${APP_NAME:-LarastoryVPN}
+      - APP_NAME=${APP_NAME:-KonnektVPN}
       - APP_ENV=${APP_ENV:-production}
       - APP_KEY=${APP_KEY}
       - APP_DEBUG=${APP_DEBUG:-false}
-      - APP_URL=${APP_URL:-https://larastory.com}
+      - APP_URL=${APP_URL:-https://konnekt-1.xyz}
       - APP_LOCALE=${APP_LOCALE:-ru}
       - APP_FALLBACK_LOCALE=${APP_FALLBACK_LOCALE:-en}
       - LOG_CHANNEL=stack
@@ -32,14 +32,14 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
       # Mini App
-      - MINIAPP_APP_URL=${MINIAPP_APP_URL:-${APP_URL:-https://larastory.com}}
+      - MINIAPP_APP_URL=${MINIAPP_APP_URL:-${APP_URL:-https://konnekt-1.xyz}}
       - MINIAPP_SUPPORT_URL=${MINIAPP_SUPPORT_URL}
       - MINIAPP_INIT_DATA_TTL=${MINIAPP_INIT_DATA_TTL:-86400}
       # Multi-server registry (JSON array; see config/servers.php for shape).
       - SERVERS_JSON=${SERVERS_JSON:-}
       # Domain
-      - VPN_PRIMARY_DOMAIN=${VPN_PRIMARY_DOMAIN:-larastory.com}
-      - VPN_PANEL_DOMAIN=${VPN_PANEL_DOMAIN:-dashboard.larastory.com}
+      - VPN_PRIMARY_DOMAIN=${VPN_PRIMARY_DOMAIN:-konnekt-1.xyz}
+      - VPN_PANEL_DOMAIN=${VPN_PANEL_DOMAIN:-dashboard.konnekt-1.xyz}
       - VPN_SUBSCRIPTION_PORT=${VPN_SUBSCRIPTION_PORT:-2096}
     depends_on:
       - 3x-ui

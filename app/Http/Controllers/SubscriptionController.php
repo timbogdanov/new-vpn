@@ -26,6 +26,6 @@ class SubscriptionController extends Controller
             ->header('Content-Type', 'text/plain; charset=utf-8')
             ->header('Cache-Control', 'no-store, must-revalidate')
             ->header('Profile-Update-Interval', '24')
-            ->header('Profile-Title', 'base64:' . base64_encode('Larastory VPN'));
+            ->header('Profile-Title', 'base64:' . base64_encode('Konnekt VPN'));
     }
 }

@@ -1,4 +1,4 @@
-# Larastory VPN
+# Konnekt VPN
 
 Laravel + 3x-ui VPN service for Dokploy deployment.
 
@@ -16,7 +16,7 @@ Laravel + 3x-ui VPN service for Dokploy deployment.
 
 ```bash
 git clone <your-repo-url>
-cd larastory-vpn
+cd konnekt-vpn
 cp .env.example .env
 ```
 
@@ -32,8 +32,8 @@ XUI_USERNAME=admin
 XUI_PASSWORD=your_secure_password
 
 # Domain configuration
-VPN_PRIMARY_DOMAIN=larastory.com
-VPN_PANEL_DOMAIN=dashboard.larastory.com
+VPN_PRIMARY_DOMAIN=konnekt-1.xyz
+VPN_PANEL_DOMAIN=dashboard.konnekt-1.xyz
 ```
 
 ### 3. Deploy to Dokploy
@@ -47,14 +47,14 @@ VPN_PANEL_DOMAIN=dashboard.larastory.com
 After deployment:
 
 1. **Configure 3x-ui panel:**
-   - Access `https://dashboard.larastory.com`
+   - Access `https://dashboard.konnekt-1.xyz`
    - Login with default credentials (admin/admin)
    - Change the admin password
    - Create an inbound on **port 8443** (VLESS + Reality recommended)
 
 2. **Set Telegram webhook:**
    ```bash
-   docker exec larastory-laravel php artisan telegram:set-webhook
+   docker exec <laravel-container> php artisan telegram:set-webhook
    ```
 
 3. **Test the bot:**
@@ -84,7 +84,7 @@ When your domain gets blocked:
 ## Project Structure
 
 ```
-larastory-vpn/
+konnekt-vpn/
 ├── docker-compose.yml      # Dokploy deployment
 ├── Dockerfile              # Laravel container
 ├── docker/                 # Docker configs (nginx, php, supervisor)
@@ -119,8 +119,8 @@ larastory-vpn/
 | `XUI_PASSWORD` | Panel password | - |
 | `XUI_INBOUND_ID` | Inbound ID for clients | `1` |
 | `TELEGRAM_BOT_TOKEN` | Bot API token | - |
-| `VPN_PRIMARY_DOMAIN` | Main domain | `larastory.com` |
-| `VPN_PANEL_DOMAIN` | 3x-ui domain | `dashboard.larastory.com` |
+| `VPN_PRIMARY_DOMAIN` | Main domain | `konnekt-1.xyz` |
+| `VPN_PANEL_DOMAIN` | 3x-ui domain | `dashboard.konnekt-1.xyz` |
 | `VPN_SUBSCRIPTION_PORT` | Subscription port | `2096` |
 
 ## License

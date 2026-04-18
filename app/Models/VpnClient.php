@@ -21,6 +21,10 @@ class VpnClient extends Model
         'last_traffic_up',
         'last_traffic_down',
         'last_traffic_synced_at',
+        'quota_bytes',
+        'quota_bytes_used_cached',
+        'expires_at',
+        'disabled_reason',
     ];
 
     protected function casts(): array
@@ -30,7 +34,23 @@ class VpnClient extends Model
             'last_traffic_up' => 'integer',
             'last_traffic_down' => 'integer',
             'last_traffic_synced_at' => 'datetime',
+            'quota_bytes' => 'integer',
+            'quota_bytes_used_cached' => 'integer',
+            'expires_at' => 'datetime',
         ];
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    public function isQuotaExhausted(): bool
+    {
+        if ($this->quota_bytes === null) {
+            return false;
+        }
+        return $this->totalTrafficBytes() >= $this->quota_bytes;
     }
 
     public function server(): BelongsTo

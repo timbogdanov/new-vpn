@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\TelegramUser;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\App;
 use RuntimeException;
 
 class TelegramAuthService
@@ -104,6 +105,29 @@ class TelegramAuthService
         }
 
         $user->save();
+
+        $this->maybeGrantTrial($user);
+
         return $user;
+    }
+
+    private function maybeGrantTrial(TelegramUser $user): void
+    {
+        if ($user->trial_used_at !== null) {
+            return;
+        }
+        if (!config('billing.trial.auto_grant_on_first_visit', true)) {
+            return;
+        }
+
+        try {
+            App::make(SubscriptionService::class)->grantTrial($user);
+        } catch (\Throwable $e) {
+            // Trial grant must never block auth.
+            \Illuminate\Support\Facades\Log::warning('Trial auto-grant failed', [
+                'telegram_id' => $user->telegram_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

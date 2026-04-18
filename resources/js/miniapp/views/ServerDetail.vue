@@ -17,6 +17,9 @@ import {
     PageHeader, Card, ListGroup, ListRow, IconButton, Button,
     Sheet, EmptyState, Chip,
 } from '../components/ui/index.js';
+import UpgradeBanner from '../components/billing/UpgradeBanner.vue';
+import PaywallSheet from '../components/billing/PaywallSheet.vue';
+import { isTrialing, isExpired, hoursUntilExpiry } from '../billing.js';
 
 const route = useRoute();
 const slug = computed(() => route.params.slug);
@@ -118,6 +121,23 @@ async function openHelp() {
         buttons: [{ id: 'ok', type: 'default', text: t('common.close') }],
     });
 }
+
+const paywallOpen = ref(false);
+function openPaywall() { hap.select(); paywallOpen.value = true; }
+
+const banner = computed(() => {
+    if (isExpired()) {
+        return { title: t('billing.expiredBanner'), severity: 'danger', cta: t('billing.renew') };
+    }
+    if (isTrialing() && hoursUntilExpiry() <= 48) {
+        return {
+            title: t('billing.trialEndingBanner', { hours: hoursUntilExpiry() }),
+            severity: 'warn',
+            cta: t('billing.upgrade'),
+        };
+    }
+    return null;
+});
 </script>
 
 <template>
@@ -126,6 +146,14 @@ async function openHelp() {
     </div>
 
     <div v-else class="px-4 space-y-6">
+        <UpgradeBanner
+            v-if="banner"
+            :title="banner.title"
+            :severity="banner.severity"
+            :cta="banner.cta"
+            @cta="openPaywall"
+        />
+
         <!-- Hero -->
         <PageHeader :title="server.name">
             <template #leading>
@@ -213,6 +241,8 @@ async function openHelp() {
                 <p class="qr-sheet__url tabular-nums">{{ subscriptionUrl }}</p>
             </div>
         </Sheet>
+
+        <PaywallSheet v-model:open="paywallOpen" />
     </div>
 </template>
 

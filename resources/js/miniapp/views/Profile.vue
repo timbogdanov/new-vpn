@@ -10,6 +10,10 @@ import { useClipboard } from '../composables/useClipboard.js';
 import TrafficDonut from '../components/TrafficDonut.vue';
 import Skeleton from '../components/Skeleton.vue';
 import FlagIcon from '../components/FlagIcon.vue';
+import SubscriptionStatusCard from '../components/billing/SubscriptionStatusCard.vue';
+import BillingHistory from '../components/billing/BillingHistory.vue';
+import PaywallSheet from '../components/billing/PaywallSheet.vue';
+import Sheet from '../components/ui/Sheet.vue';
 
 import {
     Card, SectionLabel, ListGroup, ListRow, IconButton,
@@ -73,6 +77,11 @@ function openSupport() {
     if (url) openExternal(url);
 }
 
+const paywallOpen = ref(false);
+const historyOpen = ref(false);
+function openPaywall() { hap.select(); paywallOpen.value = true; }
+function openHistory() { hap.select(); historyOpen.value = true; }
+
 function formatBytes(bytes) {
     if (!bytes) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -104,6 +113,12 @@ onMounted(load);
                 {{ t('profile.memberSince') }} · {{ memberSince }}
             </template>
         </PageHeader>
+
+        <!-- Subscription -->
+        <section>
+            <SectionLabel>{{ t('billing.title') }}</SectionLabel>
+            <SubscriptionStatusCard @upgrade="openPaywall" @history="openHistory" />
+        </section>
 
         <!-- Traffic usage -->
         <section>
@@ -187,6 +202,12 @@ onMounted(load);
                 </ListRow>
             </ListGroup>
         </section>
+
+        <PaywallSheet v-model:open="paywallOpen" />
+        <Sheet v-model:open="historyOpen" :aria-label="t('billing.history')">
+            <h2 class="bill-history-head">{{ t('billing.history') }}</h2>
+            <BillingHistory />
+        </Sheet>
     </div>
 </template>
 
@@ -218,5 +239,13 @@ onMounted(load);
     font-size: 12px;
     line-height: 16px;
     color: var(--color-text-hint);
+}
+
+.bill-history-head {
+    font-family: var(--font-display);
+    font-size: var(--text-display);
+    line-height: var(--text-display--line-height);
+    margin: 0 0 16px;
+    font-weight: 600;
 }
 </style>

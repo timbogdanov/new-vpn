@@ -94,6 +94,58 @@ class XuiService
         );
     }
 
+    /**
+     * Disable a client in 3x-ui by UUID. Used by billing:enforce-quotas when
+     * a quota is exhausted or a subscription expires.
+     */
+    public function disableClient(string $uuid): bool
+    {
+        $payload = $this->buildClientUpdatePayload($uuid, ['enable' => false]);
+        if ($payload === null) {
+            return false;
+        }
+
+        $response = $this->makeRequest('POST', "panel/api/inbounds/updateClient/{$uuid}", $payload);
+        $ok = (bool) ($response['success'] ?? false);
+
+        if ($ok) {
+            $this->forgetInboundCache();
+            Log::info('XUI: Disabled client', ['uuid' => $uuid, 'server' => $this->creds->host]);
+        } else {
+            Log::warning('XUI: Failed to disable client', [
+                'uuid' => $uuid,
+                'response' => $response,
+            ]);
+        }
+
+        return $ok;
+    }
+
+    private function buildClientUpdatePayload(string $uuid, array $changes): ?array
+    {
+        $inbound = $this->getInboundCached();
+        if (!$inbound) {
+            return null;
+        }
+
+        $settings = json_decode($inbound['settings'] ?? '{}', true);
+        $clients = $settings['clients'] ?? [];
+
+        foreach ($clients as &$client) {
+            if (($client['id'] ?? null) === $uuid) {
+                foreach ($changes as $k => $v) {
+                    $client[$k] = $v;
+                }
+                return [
+                    'id' => $this->creds->inboundId,
+                    'settings' => json_encode(['clients' => [$client]]),
+                ];
+            }
+        }
+
+        return null;
+    }
+
     public function getClientTraffic(string $email): TrafficDataDTO
     {
         $response = $this->makeRequest('GET', "panel/api/inbounds/getClientTraffics/{$email}");

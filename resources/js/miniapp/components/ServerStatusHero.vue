@@ -8,9 +8,16 @@ const props = defineProps({
     server: { type: Object, default: null },
     ping: { type: Number, default: null },
     loading: { type: Boolean, default: false },
+    status: {
+        type: String,
+        default: 'idle',
+        validator: (v) => ['idle', 'provisioning', 'connected', 'trial-ending', 'expired'].includes(v),
+    },
 });
 
 const hasServer = computed(() => !!props.server);
+
+const statusClass = computed(() => `hero--${props.status}`);
 
 const loadTone = computed(() => {
     const p = props.server?.loadPercent;
@@ -29,7 +36,7 @@ const loadLabel = computed(() => {
 </script>
 
 <template>
-    <section class="hero">
+    <section class="hero" :class="statusClass">
         <div class="hero__top">
             <FlagIcon v-if="hasServer" :code="server.countryCode" :size="44" />
             <div v-else class="hero__flag-skel"></div>
@@ -142,4 +149,30 @@ const loadLabel = computed(() => {
 }
 
 .hero__loc { color: var(--color-text-hint); }
+
+.hero--connected {
+    background: var(--gradient-aurora);
+    color: #fff;
+    box-shadow: var(--shadow-hero);
+    border-color: transparent;
+}
+.hero--connected .hero__title,
+.hero--connected .hero__ping { color: #fff; }
+.hero--connected .hero__label { color: rgba(255, 255, 255, 0.85); }
+.hero--connected .hero__loc,
+.hero--connected .hero__ping-unit { color: rgba(255, 255, 255, 0.7); }
+
+.hero--trial-ending {
+    background:
+        radial-gradient(120% 140% at 0% 0%, color-mix(in oklch, var(--color-warning) 18%, transparent) 0%, transparent 55%),
+        var(--color-surface);
+    border-color: color-mix(in oklch, var(--color-warning) 35%, var(--color-separator));
+}
+
+.hero--expired {
+    background:
+        radial-gradient(120% 140% at 0% 0%, color-mix(in oklch, var(--color-destructive) 18%, transparent) 0%, transparent 55%),
+        var(--color-surface);
+    border-color: color-mix(in oklch, var(--color-destructive) 35%, var(--color-separator));
+}
 </style>

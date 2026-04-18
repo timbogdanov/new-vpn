@@ -11,6 +11,8 @@ export const store = reactive({
     servers: [],
     config: {},
     profile: null,
+    subscription: null,
+    announcements: [],
 
     connectCache: {},
     toast: null,
@@ -38,12 +40,23 @@ export async function bootstrap() {
         store.user = data.user;
         store.servers = data.servers || [];
         store.config = data.config || {};
+        store.subscription = data.subscription || null;
         store.ready = true;
     } catch (e) {
         store.error = describeError(e);
     } finally {
         store.loading = false;
     }
+}
+
+export async function markOnboarded() {
+    if (store.user?.onboardedAt) return;
+    try {
+        const { data } = await api.patch('/profile', { onboarded: true });
+        if (data.user?.onboardedAt && store.user) {
+            store.user.onboardedAt = data.user.onboardedAt;
+        }
+    } catch (_) {}
 }
 
 export async function refreshServers() {

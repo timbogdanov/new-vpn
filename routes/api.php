@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\MiniApp\AnnouncementsController;
+use App\Http\Controllers\MiniApp\BillingController;
 use App\Http\Controllers\MiniApp\BootstrapController;
 use App\Http\Controllers\MiniApp\ProfileController;
 use App\Http\Controllers\MiniApp\ServerController;
@@ -19,4 +21,10 @@ Route::prefix('api/miniapp')
 
         Route::post('/tools/ip-check', [ToolsController::class, 'ipCheck']);
         Route::post('/tools/speed-test', [ToolsController::class, 'speedTest']);
+
+        Route::get('/billing/plans', [BillingController::class, 'plans']);
+        Route::post('/billing/invoice', [BillingController::class, 'invoice'])->middleware('throttle:20,1');
+        Route::get('/billing/history', [BillingController::class, 'history']);
+
+        Route::get('/announcements/active', [AnnouncementsController::class, 'active']);
     });

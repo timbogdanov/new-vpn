@@ -12,3 +12,8 @@ Schedule::command('servers:refresh-stats')
     ->everyFiveMinutes()
     ->withoutOverlapping()
     ->runInBackground();
+
+Schedule::command('billing:enforce-quotas')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground();

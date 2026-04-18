@@ -1,27 +1,26 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Shield, Gauge as GaugeIcon, Globe2, User } from 'lucide-vue-next';
 
-import { store } from '../store.js';
-import { t } from '../i18n.js';
-import { i18nState } from '../i18n.js';
+import { store, fetchProfile } from '../store.js';
+import { t, i18nState } from '../i18n.js';
 import { hap } from '../telegram.js';
+import { hoursUntilExpiry, isTrialing, isExpired } from '../billing.js';
 
+import BentoGrid from '../components/bento/BentoGrid.vue';
+import BentoConnectTile from '../components/bento/BentoConnectTile.vue';
+import BentoSubscriptionTile from '../components/bento/BentoSubscriptionTile.vue';
+import BentoStatsTile from '../components/bento/BentoStatsTile.vue';
+import BentoServersTile from '../components/bento/BentoServersTile.vue';
+import BentoToolsTile from '../components/bento/BentoToolsTile.vue';
+import OnboardingTour from '../components/OnboardingTour.vue';
+import UpgradeBanner from '../components/billing/UpgradeBanner.vue';
+import PaywallSheet from '../components/billing/PaywallSheet.vue';
 import Skeleton from '../components/Skeleton.vue';
-import ServerStatusHero from '../components/ServerStatusHero.vue';
-import {
-    Button, SectionLabel, ListGroup, ListRow,
-} from '../components/ui/index.js';
 
 const router = useRouter();
 
 const recommended = computed(() => store.recommendedServer);
-const availableCount = computed(() => store.availableServers.length);
-
-// BCP-47 locale for Intl APIs: the i18n bundle code is 'en' / 'ru'; we expand
-// to 'ru-RU' / 'en-US' so the date formatter picks the culturally expected
-// month names ("18 апр. 2026 г.") rather than the browser fallback.
 const intlLocale = computed(() => (i18nState.locale === 'ru' ? 'ru-RU' : 'en-US'));
 
 const memberSince = computed(() => {
@@ -32,96 +31,85 @@ const memberSince = computed(() => {
     return d.toLocaleDateString(intlLocale.value, { year: 'numeric', month: 'short', day: 'numeric' });
 });
 
-const accountSubtitle = computed(() => (
-    memberSince.value ? `${t('profile.memberSince')} · ${memberSince.value}` : ''
-));
+const greeting = computed(() => store.user?.firstName
+    ? t('home.greeting', { name: store.user.firstName })
+    : t('home.subtitle'));
 
-function connect() {
+const paywallOpen = ref(false);
+const trialing = computed(() => isTrialing());
+const expired = computed(() => isExpired());
+
+const banner = computed(() => {
+    if (expired.value) {
+        return { title: t('billing.expiredBanner'), severity: 'danger', cta: t('billing.renew') };
+    }
+    if (trialing.value && hoursUntilExpiry() <= 48) {
+        return {
+            title: t('billing.trialEndingBanner', { hours: hoursUntilExpiry() }),
+            severity: 'warn',
+            cta: t('billing.upgrade'),
+        };
+    }
+    return null;
+});
+
+function openPaywall() { hap.select(); paywallOpen.value = true; }
+
+function goConnect() {
     if (!recommended.value) return;
-    hap.select();
+    hap.medium();
     router.push(`/servers/${recommended.value.slug}`);
 }
+function openServers() { hap.select(); router.push('/servers'); }
+function openProfile() { hap.select(); router.push('/profile'); }
+function openTools() { hap.select(); router.push('/tools'); }
 
-function openServers() {
-    hap.select();
-    router.push('/servers');
-}
-function openTools() {
-    hap.select();
-    router.push('/tools');
-}
-function openProfile() {
-    hap.select();
-    router.push('/profile');
-}
+onMounted(() => {
+    if (!store.profile) {
+        // Background-load so BentoStatsTile populates without blocking paint.
+        fetchProfile().catch(() => {});
+    }
+});
 </script>
 
 <template>
-    <div class="px-4 space-y-6">
-        <!-- Hero -->
-        <Skeleton v-if="!store.servers.length" :height="160" />
-        <ServerStatusHero v-else :server="recommended">
-            <template #action>
-                <Button
-                    variant="primary"
-                    block
-                    :disabled="!recommended"
-                    @click="connect"
-                >
-                    {{ t('server.connect') }}
-                </Button>
-            </template>
-        </ServerStatusHero>
+    <div class="home px-4 space-y-5">
+        <header class="home__head">
+            <p class="home__greet">{{ greeting }}</p>
+            <p v-if="memberSince" class="home__sub">{{ t('profile.memberSince') }} · {{ memberSince }}</p>
+        </header>
 
-        <!-- Servers -->
-        <section>
-            <SectionLabel>{{ t('servers.title') }}</SectionLabel>
-            <ListGroup>
-                <ListRow
-                    :title="t('home.allServers')"
-                    :subtitle="availableCount > 0 ? t('home.gateways', { n: availableCount }) : ''"
-                    chevron
-                    @click="openServers"
-                >
-                    <template #leading>
-                        <Globe2 :size="20" :stroke-width="1.75" />
-                    </template>
-                </ListRow>
-            </ListGroup>
-        </section>
+        <UpgradeBanner
+            v-if="banner"
+            :title="banner.title"
+            :severity="banner.severity"
+            :cta="banner.cta"
+            @cta="openPaywall"
+        />
 
-        <!-- Tools -->
-        <section>
-            <SectionLabel>{{ t('home.quickTools') }}</SectionLabel>
-            <ListGroup>
-                <ListRow :title="t('home.toolsIp')" chevron @click="openTools">
-                    <template #leading>
-                        <Shield :size="20" :stroke-width="1.75" />
-                    </template>
-                </ListRow>
-                <ListRow :title="t('home.toolsSpeed')" chevron @click="openTools">
-                    <template #leading>
-                        <GaugeIcon :size="20" :stroke-width="1.75" />
-                    </template>
-                </ListRow>
-            </ListGroup>
-        </section>
+        <Skeleton v-if="!store.servers.length" :height="260" />
+        <BentoGrid v-else>
+            <BentoConnectTile @connect="goConnect" @paywall="openPaywall" />
+            <BentoSubscriptionTile @paywall="openPaywall" />
+            <BentoStatsTile @click="openProfile" />
+            <BentoServersTile @click="openServers" />
+            <BentoToolsTile @ip="openTools" @speed="openTools" />
+        </BentoGrid>
 
-        <!-- Account -->
-        <section>
-            <SectionLabel>{{ t('home.account') }}</SectionLabel>
-            <ListGroup>
-                <ListRow
-                    :title="store.user?.displayName || t('profile.title')"
-                    :subtitle="accountSubtitle"
-                    chevron
-                    @click="openProfile"
-                >
-                    <template #leading>
-                        <User :size="20" :stroke-width="1.75" />
-                    </template>
-                </ListRow>
-            </ListGroup>
-        </section>
+        <OnboardingTour />
+        <PaywallSheet v-model:open="paywallOpen" />
     </div>
 </template>
+
+<style scoped>
+.home__head { padding: 4px 4px 0; }
+.home__greet {
+    font-family: var(--font-display);
+    font-size: var(--text-display);
+    line-height: var(--text-display--line-height);
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+.home__sub { color: var(--color-text-hint); font-size: var(--text-label); margin: 4px 0 0; }
+</style>

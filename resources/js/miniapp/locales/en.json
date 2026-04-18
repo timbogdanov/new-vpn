@@ -92,6 +92,9 @@
         "retry": "Retry",
         "copy": "Copy",
         "close": "Close",
+        "skip": "Skip",
+        "next": "Next",
+        "done": "Done",
         "error": "Something went wrong",
         "errorOffline": "You're offline",
         "loading": "Loading…",
@@ -101,5 +104,59 @@
         "online": "Online",
         "offline": "Offline",
         "sessionExpired": "Your session expired — reopen the app."
+    },
+    "billing": {
+        "title": "Subscription",
+        "trialActive": "Trial · {days}d left",
+        "proActive": "Pro · {days}d left",
+        "expiring": "Renews in {hours}h",
+        "expired": "Subscription expired",
+        "noActive": "No active plan",
+        "upgrade": "Upgrade",
+        "renew": "Renew",
+        "manage": "Manage",
+        "history": "Payment history",
+        "noHistory": "No payments yet.",
+        "perMonth": "per month",
+        "perYear": "per year",
+        "saveBadge": "Save 28%",
+        "trafficUnlimited": "Unlimited traffic",
+        "trafficCap": "{gb} GB / cycle",
+        "deviceLimit": "{n} devices",
+        "starsApprox": "≈ ${usd}",
+        "trialEndingBanner": "Trial ends in {hours}h. Upgrade to keep all servers.",
+        "quotaWarning": "{percent}% of trial traffic used.",
+        "expiredBanner": "Subscription expired. Renew to reconnect.",
+        "buyAction": "Buy with ★ {stars}",
+        "paying": "Opening Telegram payment…",
+        "thanks": "Thanks — you're on {plan}.",
+        "errors": {
+            "unknownInvoice": "This invoice is no longer valid.",
+            "paymentFailed": "Payment did not go through.",
+            "unknown": "Could not start checkout."
+        },
+        "plans": {
+            "trial_7d": {
+                "name": "7-day trial",
+                "description": "Test every server for a week. 5 GB included."
+            },
+            "pro_monthly": {
+                "name": "Pro · Monthly",
+                "description": "Unlimited traffic, all servers, three devices."
+            },
+            "pro_annual": {
+                "name": "Pro · Annual",
+                "description": "Twelve months, five devices, lowest price per month."
+            }
+        }
+    },
+    "onboarding": {
+        "step1Title": "One tap to connect",
+        "step1Body": "Pick a server, tap Connect — your VPN app opens automatically.",
+        "step2Title": "All servers, one link",
+        "step2Body": "Your universal subscription syncs every server into V2RayTun or Hiddify.",
+        "step3Title": "Try free for 7 days",
+        "step3Body": "Your trial is active. Upgrade any time from Profile.",
+        "begin": "Get started"
     }
 }

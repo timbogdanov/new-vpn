@@ -93,6 +93,7 @@ class ProfileController extends Controller
         $data = $request->validate([
             'languageCode' => ['nullable', 'string', 'in:ru,en'],
             'rotateSubToken' => ['nullable', 'boolean'],
+            'onboarded' => ['nullable', 'boolean'],
         ]);
 
         if (!empty($data['languageCode'])) {
@@ -105,11 +106,16 @@ class ProfileController extends Controller
             $aggregated->invalidate($user);
         }
 
+        if (!empty($data['onboarded']) && $user->onboarded_at === null) {
+            $user->forceFill(['onboarded_at' => Carbon::now()])->save();
+        }
+
         return response()->json([
             'user' => [
                 'id' => $user->telegram_id,
                 'languageCode' => $user->language_code,
                 'subToken' => $user->getOrGenerateSubToken(),
+                'onboardedAt' => $user->onboarded_at?->toIso8601String(),
             ],
             'aggregatedSubscriptionUrl' => url('/sub/u/' . $user->getOrGenerateSubToken()),
         ]);

@@ -24,6 +24,9 @@ class TelegramUser extends Model
         'allows_write_to_pm',
         'sub_token',
         'last_active_at',
+        'trial_used_at',
+        'onboarded_at',
+        'admin_notes',
     ];
 
     protected function casts(): array
@@ -31,12 +34,29 @@ class TelegramUser extends Model
         return [
             'allows_write_to_pm' => 'boolean',
             'last_active_at' => 'datetime',
+            'trial_used_at' => 'datetime',
+            'onboarded_at' => 'datetime',
         ];
     }
 
     public function vpnClients(): HasMany
     {
         return $this->hasMany(VpnClient::class, 'telegram_user_id', 'telegram_id');
+    }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class, 'telegram_user_id', 'telegram_id');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'telegram_user_id', 'telegram_id');
+    }
+
+    public function activeSubscription(): ?Subscription
+    {
+        return $this->subscriptions()->active()->latest('started_at')->first();
     }
 
     public function getOrGenerateSubToken(): string

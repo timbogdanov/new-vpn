@@ -1,34 +1,55 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { MainButton, hap, openDeepLink } from '../telegram.js';
 import { t } from '../i18n.js';
 import { Button } from './ui/index.js';
 
 const props = defineProps({
-    enabled: { type: Boolean, default: true },
-    busy: { type: Boolean, default: false },
+    // The fully-built deep-link URL (https redirect wrapper, not raw custom scheme).
+    // When empty, the button is inert until parent provisioning completes.
+    url: { type: String, default: '' },
     label: { type: String, default: '' },
-    onClick: { type: Function, required: true },
+    // Optional async provisioner called if a click fires while url is still empty.
+    // Must resolve to the now-built URL. On iOS this path still runs through async
+    // so the deep link may be blocked — prefer having url ready before enabling.
+    provision: { type: Function, default: null },
 });
 
 const busy = ref(false);
+const enabled = computed(() => !!props.url && !busy.value);
+
 let cleanup = null;
 
-async function fire() {
-    if (!props.enabled || busy.value) return;
+function openSync(url) {
+    if (!url) return;
+    openDeepLink(url);
+    hap.success();
+}
+
+// Synchronous click path — critical on iOS so the user-gesture context isn't
+// broken by an intervening await. When a URL is already provisioned we open
+// immediately. Only fall back to the async provisioner when we absolutely must.
+function fire() {
+    if (busy.value) return;
+
+    if (props.url) {
+        hap.medium();
+        openSync(props.url);
+        return;
+    }
+
+    if (!props.provision) return;
+
     busy.value = true;
     hap.medium();
     MainButton.setProgress(true);
-    try {
-        const deep = await props.onClick();
-        if (deep) openDeepLink(deep);
-        hap.success();
-    } catch (_) {
-        hap.error();
-    } finally {
-        busy.value = false;
-        MainButton.setProgress(false);
-    }
+    Promise.resolve(props.provision())
+        .then((url) => openSync(url))
+        .catch(() => hap.error())
+        .finally(() => {
+            busy.value = false;
+            MainButton.setProgress(false);
+        });
 }
 
 function bind() {
@@ -37,7 +58,7 @@ function bind() {
 }
 
 onMounted(bind);
-watch(() => [props.label, props.enabled], bind);
+watch(() => [props.label, props.url], bind);
 
 onBeforeUnmount(() => {
     if (cleanup) { cleanup(); cleanup = null; }
@@ -45,8 +66,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <!-- In-page fallback for when MainButton isn't available (dev / web preview) -->
-    <Button variant="primary" block :loading="busy" :disabled="!enabled" @click="fire">
+    <!-- In-page button. Rendered in addition to Telegram's MainButton on
+         platforms where MainButton is unavailable (desktop web preview) or
+         when the user prefers to tap inline. -->
+    <Button variant="primary" block :loading="busy" :disabled="!enabled && !provision" @click="fire">
         {{ busy ? t('server.connecting') : (label || t('server.connect')) }}
     </Button>
 </template>

@@ -84,7 +84,7 @@ const loadLabel = computed(() => {
     return 'Low load';
 });
 
-async function handleConnect() {
+async function provisionIfNeeded() {
     if (!payload.value) await ensureProvisioned();
     return openUrl.value;
 }
@@ -148,8 +148,8 @@ async function openHelp() {
         <div v-else class="space-y-5">
             <ConnectButton
                 :label="t('server.connect')"
-                :enabled="!!payload && !loading"
-                :on-click="handleConnect"
+                :url="openUrl"
+                :provision="provisionIfNeeded"
             />
 
             <!-- Subscription + actions -->

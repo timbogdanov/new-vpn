@@ -10,12 +10,12 @@
 
     <title>{{ config('app.name') }}</title>
 
-    {{-- Inter Variable (Latin + Cyrillic) via Google Fonts, preloaded for fast text paint. --}}
+    {{-- Inter (UI) + Playfair Display (editorial display). Both ship Cyrillic. --}}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap"
     >
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>

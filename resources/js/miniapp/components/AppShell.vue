@@ -128,10 +128,11 @@ function dismissError() {
 }
 .shell-header__title {
     margin: 2px 0 0;
-    font-size: 18px;
-    line-height: 24px;
+    font-family: var(--font-display);
+    font-size: 22px;
+    line-height: 26px;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -140,8 +141,10 @@ function dismissError() {
 .shell-header__title--center {
     text-align: center;
     flex: 1 1 auto;
+    font-family: var(--font-sans);
     font-size: 15px;
     line-height: 20px;
+    letter-spacing: -0.005em;
 }
 .shell-header__spacer { width: 36px; height: 36px; }
 

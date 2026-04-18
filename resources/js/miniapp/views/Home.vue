@@ -5,6 +5,7 @@ import { Shield, Gauge as GaugeIcon, Globe2, User } from 'lucide-vue-next';
 
 import { store } from '../store.js';
 import { t } from '../i18n.js';
+import { i18nState } from '../i18n.js';
 import { hap } from '../telegram.js';
 
 import Skeleton from '../components/Skeleton.vue';
@@ -17,6 +18,23 @@ const router = useRouter();
 
 const recommended = computed(() => store.recommendedServer);
 const availableCount = computed(() => store.availableServers.length);
+
+// BCP-47 locale for Intl APIs: the i18n bundle code is 'en' / 'ru'; we expand
+// to 'ru-RU' / 'en-US' so the date formatter picks the culturally expected
+// month names ("18 апр. 2026 г.") rather than the browser fallback.
+const intlLocale = computed(() => (i18nState.locale === 'ru' ? 'ru-RU' : 'en-US'));
+
+const memberSince = computed(() => {
+    const raw = store.user?.memberSince;
+    if (!raw) return '';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(intlLocale.value, { year: 'numeric', month: 'short', day: 'numeric' });
+});
+
+const accountSubtitle = computed(() => (
+    memberSince.value ? `${t('profile.memberSince')} · ${memberSince.value}` : ''
+));
 
 function connect() {
     if (!recommended.value) return;
@@ -61,7 +79,7 @@ function openProfile() {
             <ListGroup>
                 <ListRow
                     :title="t('home.allServers')"
-                    :subtitle="availableCount > 0 ? `${availableCount} gateways` : ''"
+                    :subtitle="availableCount > 0 ? t('home.gateways', { n: availableCount }) : ''"
                     chevron
                     @click="openServers"
                 >
@@ -91,11 +109,11 @@ function openProfile() {
 
         <!-- Account -->
         <section>
-            <SectionLabel>Account</SectionLabel>
+            <SectionLabel>{{ t('home.account') }}</SectionLabel>
             <ListGroup>
                 <ListRow
                     :title="store.user?.displayName || t('profile.title')"
-                    :subtitle="t('profile.memberSince')"
+                    :subtitle="accountSubtitle"
                     chevron
                     @click="openProfile"
                 >

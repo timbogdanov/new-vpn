@@ -43,7 +43,7 @@ async function setLang(code) {
     hap.select();
     await updateProfile({ languageCode: code });
     setLocale(code);
-    toast(code === 'ru' ? 'Язык переключён' : 'Language switched', 'success');
+    toast(t('profile.langSwitched'), 'success');
 }
 
 async function rotateToken() {

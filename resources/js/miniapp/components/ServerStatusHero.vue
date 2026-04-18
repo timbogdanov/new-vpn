@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import FlagIcon from './FlagIcon.vue';
 import { Chip } from './ui/index.js';
+import { t } from '../i18n.js';
 
 const props = defineProps({
     server: { type: Object, default: null },
@@ -21,9 +22,9 @@ const loadTone = computed(() => {
 const loadLabel = computed(() => {
     const p = props.server?.loadPercent;
     if (p == null) return null;
-    if (p >= 75) return 'Busy';
-    if (p >= 40) return 'Moderate';
-    return 'Low load';
+    if (p >= 75) return t('server.loadBusy');
+    if (p >= 40) return t('server.loadModerate');
+    return t('server.loadLow');
 });
 </script>
 
@@ -33,7 +34,7 @@ const loadLabel = computed(() => {
             <FlagIcon v-if="hasServer" :code="server.countryCode" :size="44" />
             <div v-else class="hero__flag-skel"></div>
             <div class="hero__body">
-                <div class="hero__label">Recommended</div>
+                <div class="hero__label">{{ t('home.recommended') }}</div>
                 <h1 class="hero__title">{{ hasServer ? server.name : '—' }}</h1>
             </div>
         </div>
@@ -54,13 +55,36 @@ const loadLabel = computed(() => {
 
 <style scoped>
 .hero {
-    padding: 20px;
-    background: var(--color-surface);
+    position: relative;
+    padding: 22px 20px 20px;
+    background:
+        radial-gradient(
+            120% 140% at 0% 0%,
+            color-mix(in oklch, var(--color-accent) 14%, transparent) 0%,
+            transparent 55%
+        ),
+        var(--color-surface);
     border-radius: var(--radius-md);
     border: 1px solid var(--color-separator);
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow: hidden;
+}
+
+/* Thin accent band along the top — premium signal, color-neutral. */
+.hero::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in oklch, var(--color-accent) 55%, transparent) 50%,
+        transparent 100%
+    );
+    pointer-events: none;
 }
 
 .hero__top {
@@ -81,18 +105,19 @@ const loadLabel = computed(() => {
 .hero__label {
     font-size: 11px;
     line-height: 14px;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--color-text-hint);
-    font-weight: 600;
+    color: color-mix(in srgb, var(--color-text-hint) 85%, var(--color-accent));
+    font-weight: 700;
 }
 
 .hero__title {
-    margin: 2px 0 0;
-    font-size: 22px;
-    line-height: 28px;
+    margin: 4px 0 0;
+    font-family: var(--font-display);
+    font-size: 26px;
+    line-height: 30px;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
     color: var(--color-text);
 }
 

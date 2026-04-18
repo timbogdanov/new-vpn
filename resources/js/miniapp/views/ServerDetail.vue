@@ -3,7 +3,7 @@ import { computed, ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { Copy, Check, QrCode as QrCodeIcon, HelpCircle, Clock, Download } from 'lucide-vue-next';
 
-import { store, connect as provisionConnect, toast } from '../store.js';
+import { store, connect as provisionConnect, fetchProfile, toast } from '../store.js';
 import { t } from '../i18n.js';
 import { detectDevice, hap, openExternal, showPopup } from '../telegram.js';
 import { useClipboard } from '../composables/useClipboard.js';
@@ -11,6 +11,7 @@ import { useClipboard } from '../composables/useClipboard.js';
 import ConnectButton from '../components/ConnectButton.vue';
 import FlagIcon from '../components/FlagIcon.vue';
 import QrCode from '../components/QrCode.vue';
+import ServerFacts from '../components/ServerFacts.vue';
 
 import {
     PageHeader, Card, ListGroup, ListRow, IconButton, Button,
@@ -32,7 +33,12 @@ const device = detectDevice();
 onMounted(async () => {
     if (!server.value) return;
     if (server.value.isComingSoon) return;
-    await ensureProvisioned();
+    // Kick off provisioning immediately; load profile in the background so the
+    // "Your traffic" tile can populate without blocking the connect flow.
+    ensureProvisioned();
+    if (!store.profile) {
+        fetchProfile().catch(() => {});
+    }
 });
 
 async function ensureProvisioned() {
@@ -79,9 +85,9 @@ const loadTone = computed(() => {
 const loadLabel = computed(() => {
     const p = loadPct.value;
     if (p === null) return null;
-    if (p >= 75) return 'Busy';
-    if (p >= 40) return 'Moderate';
-    return 'Low load';
+    if (p >= 75) return t('server.loadBusy');
+    if (p >= 40) return t('server.loadModerate');
+    return t('server.loadLow');
 });
 
 async function provisionIfNeeded() {
@@ -134,7 +140,7 @@ async function openHelp() {
 
         <!-- Coming soon -->
         <Card v-if="server.isComingSoon" padding="none">
-            <EmptyState :title="t('server.soon')" body="We’ll let you know when it ships.">
+            <EmptyState :title="t('server.soon')" :body="t('server.soonBody')">
                 <template #icon>
                     <Clock :size="22" :stroke-width="1.75" />
                 </template>
@@ -151,6 +157,9 @@ async function openHelp() {
                 :url="openUrl"
                 :provision="provisionIfNeeded"
             />
+
+            <!-- At-a-glance facts -->
+            <ServerFacts :server="server" />
 
             <!-- Subscription + actions -->
             <section v-if="subscriptionUrl">
@@ -197,7 +206,7 @@ async function openHelp() {
         </div>
 
         <!-- QR in bottom sheet -->
-        <Sheet v-model:open="showQr" aria-label="Subscription QR">
+        <Sheet v-model:open="showQr" :aria-label="t('server.qrAria')">
             <div class="qr-sheet">
                 <QrCode :value="subscriptionUrl" :size="220" />
                 <p class="qr-sheet__caption">{{ t('profile.aggregated') }}</p>

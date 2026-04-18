@@ -8,10 +8,10 @@
 .ui-section-label {
     font-size: 11px;
     line-height: 16px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--color-text-hint);
-    padding: 0 4px 8px;
+    color: color-mix(in srgb, var(--color-text-hint) 80%, var(--color-text-subtle));
+    padding: 0 4px 10px;
 }
 </style>

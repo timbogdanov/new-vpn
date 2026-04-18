@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { MainButton, hap, openDeepLink } from '../telegram.js';
+import { MainButton, hap, openDeepLink, isRealTelegram } from '../telegram.js';
 import { t } from '../i18n.js';
 import { Button } from './ui/index.js';
 
@@ -66,10 +66,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <!-- In-page button. Rendered in addition to Telegram's MainButton on
-         platforms where MainButton is unavailable (desktop web preview) or
-         when the user prefers to tap inline. -->
-    <Button variant="primary" block :loading="busy" :disabled="!enabled && !provision" @click="fire">
+    <!-- Fallback inline button for environments without Telegram's MainButton
+         (desktop browser preview, standalone dev shim). Inside real Telegram
+         the bottom MainButton is the sole connect affordance. -->
+    <Button
+        v-if="!isRealTelegram"
+        variant="primary"
+        block
+        :loading="busy"
+        :disabled="!enabled && !provision"
+        @click="fire"
+    >
         {{ busy ? t('server.connecting') : (label || t('server.connect')) }}
     </Button>
 </template>

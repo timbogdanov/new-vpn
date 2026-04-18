@@ -49,10 +49,11 @@ defineProps({
 
 .ui-page-header__title {
     margin: 0;
-    font-size: 24px;
-    line-height: 30px;
+    font-family: var(--font-display);
+    font-size: 28px;
+    line-height: 32px;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
     color: var(--color-text);
 }
 

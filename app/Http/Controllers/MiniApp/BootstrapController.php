@@ -26,6 +26,7 @@ class BootstrapController extends Controller
                 'photoUrl' => $user->photo_url,
                 'languageCode' => $user->language_code,
                 'displayName' => $user->displayName(),
+                'memberSince' => $user->created_at?->toIso8601String(),
                 'subToken' => $user->getOrGenerateSubToken(),
             ],
             'servers' => $servers,

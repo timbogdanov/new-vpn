@@ -1,5 +1,6 @@
 import { reactive, computed } from 'vue';
 import api from './api.js';
+import { t } from './i18n.js';
 
 export const store = reactive({
     ready: false,
@@ -100,9 +101,9 @@ export function toast(message, kind = 'info', ms = 2400) {
 }
 
 function describeError(e) {
-    if (!e) return 'unknown';
+    if (!e) return t('common.error');
     if (e.response?.data?.message) return e.response.data.message;
-    if (e.response?.status === 401) return 'Your session expired — reopen the app.';
+    if (e.response?.status === 401) return t('common.sessionExpired');
     if (e.message) return e.message;
-    return 'Something went wrong';
+    return t('common.error');
 }

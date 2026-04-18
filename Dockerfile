@@ -63,6 +63,13 @@ COPY --from=frontend /build/public/build ./public/build
 
 RUN composer update --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
+# Stash migrations + seeders OUTSIDE the path that the laravel_db volume masks at
+# runtime. The supervisor startup script syncs them back into the live path
+# before `migrate` runs, so new migrations land on every redeploy without
+# touching the persistent SQLite file in the same volume.
+RUN cp -r /var/www/html/database/migrations /opt/laravel-stash-migrations \
+    && cp -r /var/www/html/database/seeders /opt/laravel-stash-seeders
+
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
     && chmod -R 755 /var/www/html/bootstrap/cache

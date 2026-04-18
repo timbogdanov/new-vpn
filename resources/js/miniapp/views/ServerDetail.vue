@@ -1,15 +1,21 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { Copy, Check, QrCode as QrCodeIcon, HelpCircle, Clock, Download } from 'lucide-vue-next';
+
 import { store, connect as provisionConnect, toast } from '../store.js';
 import { t } from '../i18n.js';
-import { detectDevice, hap, openExternal } from '../telegram.js';
+import { detectDevice, hap, openExternal, showPopup } from '../telegram.js';
 import { useClipboard } from '../composables/useClipboard.js';
+
 import ConnectButton from '../components/ConnectButton.vue';
 import FlagIcon from '../components/FlagIcon.vue';
 import QrCode from '../components/QrCode.vue';
-import PingBadge from '../components/PingBadge.vue';
-import LoadBar from '../components/LoadBar.vue';
+
+import {
+    PageHeader, Card, ListGroup, ListRow, IconButton, Button,
+    Sheet, EmptyState, Chip,
+} from '../components/ui/index.js';
 
 const route = useRoute();
 const slug = computed(() => route.params.slug);
@@ -42,20 +48,37 @@ async function ensureProvisioned() {
 
 const deepLink = computed(() => payload.value?.deepLinks?.[device] || payload.value?.deepLinks?.ios || '');
 const subscriptionUrl = computed(() => payload.value?.subscriptionUrl || '');
+const subscriptionPreview = computed(() => {
+    const url = subscriptionUrl.value;
+    if (!url) return '';
+    return url.length > 28 ? `${url.slice(0, 28)}…` : url;
+});
 const appStoreLink = computed(() => payload.value?.appStoreLinks?.[device] || payload.value?.appStoreLinks?.ios);
 
+const ping = computed(() => server.value?.pingMs ?? null);
+const loadPct = computed(() => server.value?.loadPercent ?? null);
+const loadTone = computed(() => {
+    const p = loadPct.value;
+    if (p === null) return 'neutral';
+    if (p >= 75) return 'warning';
+    return 'success';
+});
+const loadLabel = computed(() => {
+    const p = loadPct.value;
+    if (p === null) return null;
+    if (p >= 75) return 'Busy';
+    if (p >= 40) return 'Moderate';
+    return 'Low load';
+});
+
 async function handleConnect() {
-    if (!payload.value) {
-        await ensureProvisioned();
-    }
+    if (!payload.value) await ensureProvisioned();
     return deepLink.value;
 }
 
 async function copyUrl() {
     hap.light();
-    if (await copy(subscriptionUrl.value)) {
-        toast(t('server.copied'), 'success');
-    }
+    if (await copy(subscriptionUrl.value)) toast(t('server.copied'), 'success');
 }
 
 function toggleQr() {
@@ -67,82 +90,146 @@ function openStore() {
     hap.light();
     if (appStoreLink.value) openExternal(appStoreLink.value);
 }
+
+async function openHelp() {
+    hap.light();
+    await showPopup({
+        title: t('server.how'),
+        message: t('server.howBody'),
+        buttons: [{ id: 'ok', type: 'default', text: t('common.close') }],
+    });
+}
 </script>
 
 <template>
-    <div v-if="!server" class="py-16 text-center text-sm" style="color: var(--color-text-hint)">
+    <div v-if="!server" class="px-4 py-16 text-center" style="color: var(--color-text-hint)">
         {{ t('common.loading') }}
     </div>
 
-    <div v-else class="pt-1 space-y-5">
+    <div v-else class="px-4 space-y-6">
         <!-- Hero -->
-        <div class="card p-5 flex items-center gap-4 relative overflow-hidden">
-            <div aria-hidden="true"
-                 class="absolute inset-0 pointer-events-none"
-                 style="background: radial-gradient(80% 100% at 0% 0%, color-mix(in srgb, var(--color-button) 22%, transparent), transparent 60%); opacity: 0.8" />
-            <FlagIcon :emoji="server.flagEmoji" :code="server.countryCode" :size="64" />
-            <div class="flex-1 min-w-0 relative">
-                <div class="text-xl font-semibold truncate">{{ server.name }}</div>
-                <div class="text-xs" style="color: var(--color-text-subtitle)">
-                    {{ server.city }}<span v-if="server.city">, </span>{{ server.country }}
-                </div>
-                <div class="mt-2 flex items-center gap-3">
-                    <PingBadge :ms="server.pingMs" />
-                    <LoadBar :percent="server.loadPercent" class="flex-1" />
-                </div>
-            </div>
-        </div>
+        <PageHeader :title="server.name">
+            <template #leading>
+                <FlagIcon :code="server.countryCode" :size="52" />
+            </template>
+            <template #subtitle>
+                <span>{{ [server.city, server.country].filter(Boolean).join(', ') }}</span>
+                <span v-if="ping != null" class="tabular-nums hero-sep">· {{ Math.round(ping) }} ms</span>
+                <Chip v-if="loadLabel" :tone="loadTone" dot class="hero-chip">{{ loadLabel }}</Chip>
+            </template>
+        </PageHeader>
 
-        <!-- Coming-soon fallback -->
-        <div v-if="server.isComingSoon" class="card p-5">
-            <div class="text-sm">{{ t('server.soon') }}</div>
-            <button class="btn btn--secondary w-full mt-3" disabled>{{ t('server.notifyMe') }}</button>
-        </div>
+        <!-- Coming soon -->
+        <Card v-if="server.isComingSoon" padding="none">
+            <EmptyState :title="t('server.soon')" body="We’ll let you know when it ships.">
+                <template #icon>
+                    <Clock :size="22" :stroke-width="1.75" />
+                </template>
+                <template #action>
+                    <Button variant="ghost" size="sm" disabled>{{ t('server.notifyMe') }}</Button>
+                </template>
+            </EmptyState>
+        </Card>
 
         <!-- Connect flow -->
-        <div v-else class="space-y-3">
+        <div v-else class="space-y-5">
             <ConnectButton
                 :label="t('server.connect')"
                 :enabled="!!payload && !loading"
                 :on-click="handleConnect"
             />
 
-            <div class="grid grid-cols-2 gap-2">
-                <button class="btn btn--secondary" :disabled="!subscriptionUrl" @click="copyUrl">
-                    {{ copied ? t('server.copied') : t('server.copyLink') }}
-                </button>
-                <button class="btn btn--secondary" :disabled="!subscriptionUrl" @click="toggleQr">
-                    {{ t('server.showQr') }}
-                </button>
-            </div>
+            <!-- Subscription + actions -->
+            <section v-if="subscriptionUrl">
+                <ListGroup>
+                    <ListRow
+                        :title="t('profile.aggregated')"
+                        :subtitle="subscriptionPreview"
+                        :interactive="false"
+                    >
+                        <template #trailing>
+                            <div class="sub-actions">
+                                <IconButton :aria-label="t('common.copy')" variant="ghost" @click="copyUrl">
+                                    <Check v-if="copied" :size="18" :stroke-width="1.75" />
+                                    <Copy v-else :size="18" :stroke-width="1.75" />
+                                </IconButton>
+                                <IconButton :aria-label="t('server.showQr')" variant="ghost" @click="toggleQr">
+                                    <QrCodeIcon :size="18" :stroke-width="1.75" />
+                                </IconButton>
+                            </div>
+                        </template>
+                    </ListRow>
+                </ListGroup>
+            </section>
 
-            <transition name="page">
-                <div v-if="showQr && subscriptionUrl" class="card p-4 flex flex-col items-center gap-2">
-                    <QrCode :value="subscriptionUrl" :size="200" />
-                    <div class="text-[11px] text-center break-all px-2 font-mono"
-                         style="color: var(--color-text-hint)">{{ subscriptionUrl }}</div>
-                </div>
-            </transition>
+            <!-- Help + download -->
+            <section>
+                <ListGroup>
+                    <ListRow :title="t('server.how')" chevron @click="openHelp">
+                        <template #leading>
+                            <HelpCircle :size="20" :stroke-width="1.75" />
+                        </template>
+                    </ListRow>
+                    <ListRow v-if="appStoreLink" :title="t('server.download')" chevron @click="openStore">
+                        <template #leading>
+                            <Download :size="20" :stroke-width="1.75" />
+                        </template>
+                    </ListRow>
+                </ListGroup>
+            </section>
 
-            <!-- How it works -->
-            <details class="card px-4 py-3 open:pb-4">
-                <summary class="cursor-pointer text-sm font-medium flex items-center justify-between"
-                         style="list-style: none">
-                    <span>{{ t('server.how') }}</span>
-                    <span style="color: var(--color-text-hint)">›</span>
-                </summary>
-                <div class="text-xs mt-2 leading-relaxed" style="color: var(--color-text-subtitle)">
-                    {{ t('server.howBody') }}
-                </div>
-                <button v-if="appStoreLink" class="btn btn--secondary w-full mt-3" @click="openStore">
-                    {{ t('server.download') }}
-                </button>
-            </details>
-
-            <div v-if="error" class="card p-4 text-sm"
-                 style="border-color: color-mix(in srgb, var(--color-destructive) 40%, transparent); color: var(--color-destructive)">
+            <div v-if="error" class="error-card">
                 {{ error }}
             </div>
         </div>
+
+        <!-- QR in bottom sheet -->
+        <Sheet v-model:open="showQr" aria-label="Subscription QR">
+            <div class="qr-sheet">
+                <QrCode :value="subscriptionUrl" :size="220" />
+                <p class="qr-sheet__caption">{{ t('profile.aggregated') }}</p>
+                <p class="qr-sheet__url tabular-nums">{{ subscriptionUrl }}</p>
+            </div>
+        </Sheet>
     </div>
 </template>
+
+<style scoped>
+.hero-sep { color: var(--color-text-subtle); }
+.hero-chip { margin-left: 2px; }
+
+.sub-actions { display: inline-flex; gap: 4px; }
+
+.error-card {
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid color-mix(in srgb, var(--color-destructive) 40%, transparent);
+    color: var(--color-destructive);
+    font-size: 13px;
+    line-height: 18px;
+}
+
+.qr-sheet {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 4px 4px;
+}
+.qr-sheet__caption {
+    margin: 16px 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+.qr-sheet__url {
+    margin: 0;
+    max-width: 100%;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 16px;
+    color: var(--color-text-hint);
+    text-align: center;
+    word-break: break-all;
+    padding: 0 4px;
+}
+</style>

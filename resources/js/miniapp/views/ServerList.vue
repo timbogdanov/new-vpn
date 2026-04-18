@@ -1,11 +1,15 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { MapPinOff } from 'lucide-vue-next';
+
 import { store } from '../store.js';
 import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
-import ServerCard from '../components/ServerCard.vue';
+
+import ServerRow from '../components/ServerRow.vue';
 import Skeleton from '../components/Skeleton.vue';
+import { SegmentedControl, ListGroup, EmptyState, Card } from '../components/ui/index.js';
 import { useBrowserPing } from '../composables/useBrowserPing.js';
 
 const router = useRouter();
@@ -29,61 +33,73 @@ function go(server) {
     router.push(`/servers/${server.slug}`);
 }
 
-function pickSort(key) {
+function onSort(v) {
     hap.select();
-    sort.value = key;
+    sort.value = v;
 }
 
 onMounted(async () => {
-    // Background probe — nice, non-blocking, cheap.
     for (const s of store.availableServers) {
         if (!s.hostPreview) continue;
-        // Use /health via primary domain for a same-origin, always-available target.
-        // (Per-server hosts may not serve HTTPS HEAD — fall back to app origin as a neutral proxy latency.)
         await ping(s.slug, '/health', { samples: 1 });
     }
 });
 </script>
 
 <template>
-    <div class="pt-1 space-y-4">
-        <div class="px-1">
-            <div class="text-sm" style="color: var(--color-text-subtitle)">{{ t('servers.subtitle') }}</div>
-        </div>
+    <div class="px-4 space-y-4">
+        <p class="subtitle">{{ t('servers.subtitle') }}</p>
 
-        <div class="flex gap-2 px-1 overflow-x-auto -mx-4 px-4" style="scroll-snap-type: x mandatory">
-            <button
-                v-for="opt in [
-                    { k: 'recommended', l: t('servers.sortRecommended') },
-                    { k: 'ping',        l: t('servers.sortPing') },
-                    { k: 'load',        l: t('servers.sortLoad') },
+        <div class="sort-bar">
+            <SegmentedControl
+                :model-value="sort"
+                :options="[
+                    { value: 'recommended', label: t('servers.sortRecommended') },
+                    { value: 'ping',        label: t('servers.sortPing') },
+                    { value: 'load',        label: t('servers.sortLoad') },
                 ]"
-                :key="opt.k"
-                class="chip"
-                :class="sort === opt.k ? 'chip--recommended' : ''"
-                :style="sort === opt.k ? '' : 'background: var(--color-bg-section)'"
-                @click="pickSort(opt.k)"
-            >
-                {{ opt.l }}
-            </button>
+                :aria-label="t('servers.title')"
+                @update:model-value="onSort"
+            />
         </div>
 
         <div v-if="!store.servers.length" class="space-y-2">
-            <Skeleton v-for="i in 5" :key="i" :height="74" />
+            <Skeleton v-for="i in 5" :key="i" :height="60" />
         </div>
 
-        <div v-else-if="!sorted.length" class="py-12 text-center text-sm" style="color: var(--color-text-hint)">
-            {{ t('servers.empty') }}
-        </div>
+        <Card v-else-if="!sorted.length" padding="none">
+            <EmptyState :title="t('servers.empty')">
+                <template #icon>
+                    <MapPinOff :size="22" :stroke-width="1.75" />
+                </template>
+            </EmptyState>
+        </Card>
 
-        <div v-else class="space-y-2">
-            <ServerCard
+        <ListGroup v-else>
+            <ServerRow
                 v-for="s in sorted"
                 :key="s.slug"
                 :server="s"
                 :ping-override="pings[s.slug] ?? null"
                 @click="go"
             />
-        </div>
+        </ListGroup>
     </div>
 </template>
+
+<style scoped>
+.subtitle {
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--color-text-hint);
+    margin: 0 4px;
+}
+
+.sort-bar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 4px 0;
+    background: linear-gradient(to bottom, var(--color-bg) 80%, transparent);
+}
+</style>

@@ -1,15 +1,36 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import { LifeBuoy, RotateCcw, Copy, Check, User } from 'lucide-vue-next';
+
 import { store, fetchProfile, updateProfile, toast } from '../store.js';
 import { t, setLocale } from '../i18n.js';
 import { hap, openExternal, showPopup } from '../telegram.js';
 import { useClipboard } from '../composables/useClipboard.js';
+
 import TrafficDonut from '../components/TrafficDonut.vue';
 import Skeleton from '../components/Skeleton.vue';
 import FlagIcon from '../components/FlagIcon.vue';
 
+import {
+    Card, SectionLabel, ListGroup, ListRow, IconButton,
+    SegmentedControl, PageHeader,
+} from '../components/ui/index.js';
+
 const loading = ref(false);
 const { copy, copied } = useClipboard();
+
+const memberSince = computed(() => {
+    const raw = store.profile?.user?.memberSince;
+    if (!raw) return '';
+    return new Date(raw).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+});
+
+const aggregatedUrl = computed(() => store.profile?.aggregatedSubscriptionUrl || '');
+const aggregatedPreview = computed(() => {
+    const url = aggregatedUrl.value;
+    if (!url) return '';
+    return url.length > 32 ? `${url.slice(0, 32)}…` : url;
+});
 
 async function load() {
     loading.value = true;
@@ -18,7 +39,7 @@ async function load() {
 }
 
 async function setLang(code) {
-    if (code === store.user?.languageCode) return;
+    if (!code || code === store.user?.languageCode) return;
     hap.select();
     await updateProfile({ languageCode: code });
     setLocale(code);
@@ -42,10 +63,9 @@ async function rotateToken() {
 }
 
 async function copyUrl() {
-    const url = store.profile?.aggregatedSubscriptionUrl;
-    if (!url) return;
+    if (!aggregatedUrl.value) return;
     hap.light();
-    if (await copy(url)) toast(t('server.copied'), 'success');
+    if (await copy(aggregatedUrl.value)) toast(t('server.copied'), 'success');
 }
 
 function openSupport() {
@@ -53,109 +73,6 @@ function openSupport() {
     if (url) openExternal(url);
 }
 
-onMounted(load);
-</script>
-
-<template>
-    <div class="pt-1 space-y-4">
-        <!-- Identity card -->
-        <div class="card p-5 flex items-center gap-4">
-            <div class="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center"
-                 style="background: var(--color-bg-secondary)">
-                <img
-                    v-if="store.user?.photoUrl"
-                    :src="store.user.photoUrl"
-                    :alt="store.user.displayName"
-                    class="w-full h-full object-cover"
-                    referrerpolicy="no-referrer"
-                >
-                <span v-else style="font-size:22px">👤</span>
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="text-lg font-semibold truncate">{{ store.user?.displayName || '—' }}</div>
-                <div v-if="store.profile?.user?.memberSince" class="text-xs" style="color: var(--color-text-hint)">
-                    {{ t('profile.memberSince') }} {{ new Date(store.profile.user.memberSince).toLocaleDateString() }}
-                </div>
-            </div>
-        </div>
-
-        <!-- Aggregated traffic -->
-        <div class="card p-5">
-            <div class="text-xs uppercase tracking-wider mb-3" style="color: var(--color-text-hint)">
-                {{ t('profile.trafficTotal') }}
-            </div>
-            <Skeleton v-if="loading && !store.profile" :height="104" />
-            <TrafficDonut
-                v-else
-                :up="store.profile?.totalTraffic?.up || 0"
-                :down="store.profile?.totalTraffic?.down || 0"
-            />
-        </div>
-
-        <!-- Per-server breakdown -->
-        <section v-if="store.profile?.clients?.length">
-            <div class="px-1 mb-2 text-sm font-semibold">{{ t('profile.perServer') }}</div>
-            <div class="space-y-2">
-                <div v-for="client in store.profile.clients" :key="client.uuid"
-                     class="card p-4 flex items-center gap-3">
-                    <FlagIcon :emoji="client.server.flagEmoji" :code="client.server.countryCode" :size="36" />
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm font-medium truncate">{{ client.server.name }}</div>
-                        <div class="text-[11px]" style="color: var(--color-text-hint)">
-                            {{ formatBytes(client.traffic.total) }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Aggregated subscription -->
-        <section v-if="store.profile?.aggregatedSubscriptionUrl">
-            <div class="px-1 mb-2 text-sm font-semibold">{{ t('profile.aggregated') }}</div>
-            <div class="card p-4 space-y-3">
-                <div class="text-xs" style="color: var(--color-text-subtitle)">{{ t('profile.aggregatedHint') }}</div>
-                <div
-                    class="text-[11px] font-mono break-all rounded-xl px-3 py-2"
-                    style="background: rgba(255,255,255,0.04); color: var(--color-text-subtitle)"
-                >{{ store.profile.aggregatedSubscriptionUrl }}</div>
-                <div class="grid grid-cols-2 gap-2">
-                    <button class="btn btn--secondary" @click="copyUrl">
-                        {{ copied ? t('server.copied') : t('common.copy') }}
-                    </button>
-                    <button class="btn btn--secondary" @click="rotateToken" style="color: var(--color-destructive)">
-                        {{ t('profile.rotate') }}
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- Language -->
-        <section>
-            <div class="px-1 mb-2 text-sm font-semibold">{{ t('profile.language') }}</div>
-            <div class="card p-2 flex gap-1">
-                <button
-                    v-for="lang in [{ k: 'ru', l: 'Русский' }, { k: 'en', l: 'English' }]"
-                    :key="lang.k"
-                    class="flex-1 py-3 rounded-xl text-sm font-medium"
-                    :style="store.user?.languageCode === lang.k ? 'background: var(--color-button); color: var(--color-button-text)' : 'color: var(--color-text)'"
-                    @click="setLang(lang.k)"
-                >
-                    {{ lang.l }}
-                </button>
-            </div>
-        </section>
-
-        <!-- Support -->
-        <section v-if="store.config?.supportUrl">
-            <button class="card w-full p-4 flex items-center justify-between text-left" @click="openSupport">
-                <span class="text-sm font-medium">{{ t('profile.support') }}</span>
-                <span style="color: var(--color-text-hint)">›</span>
-            </button>
-        </section>
-    </div>
-</template>
-
-<script>
 function formatBytes(bytes) {
     if (!bytes) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -163,4 +80,143 @@ function formatBytes(bytes) {
     while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
     return n.toFixed(n >= 100 || i === 0 ? 0 : 1) + ' ' + units[i];
 }
+
+onMounted(load);
 </script>
+
+<template>
+    <div class="px-4 space-y-6">
+        <!-- Identity -->
+        <PageHeader :title="store.user?.displayName || '—'">
+            <template #leading>
+                <div class="identity-avatar">
+                    <img
+                        v-if="store.user?.photoUrl"
+                        :src="store.user.photoUrl"
+                        :alt="store.user.displayName"
+                        class="identity-avatar__img"
+                        referrerpolicy="no-referrer"
+                    >
+                    <User v-else :size="22" :stroke-width="1.75" />
+                </div>
+            </template>
+            <template v-if="memberSince" #subtitle>
+                {{ t('profile.memberSince') }} · {{ memberSince }}
+            </template>
+        </PageHeader>
+
+        <!-- Traffic usage -->
+        <section>
+            <SectionLabel>{{ t('profile.trafficTotal') }}</SectionLabel>
+            <Card>
+                <Skeleton v-if="loading && !store.profile" :height="160" />
+                <TrafficDonut
+                    v-else
+                    :up="store.profile?.totalTraffic?.up || 0"
+                    :down="store.profile?.totalTraffic?.down || 0"
+                />
+            </Card>
+        </section>
+
+        <!-- Per-server breakdown -->
+        <section v-if="store.profile?.clients?.length">
+            <SectionLabel>{{ t('profile.perServer') }}</SectionLabel>
+            <ListGroup>
+                <ListRow
+                    v-for="client in store.profile.clients"
+                    :key="client.uuid"
+                    :title="client.server.name"
+                    :interactive="false"
+                >
+                    <template #leading>
+                        <FlagIcon :code="client.server.countryCode" :size="32" />
+                    </template>
+                    <template #trailing>
+                        <span class="tabular-nums traffic-amount">{{ formatBytes(client.traffic.total) }}</span>
+                    </template>
+                </ListRow>
+            </ListGroup>
+        </section>
+
+        <!-- Universal subscription -->
+        <section v-if="aggregatedUrl">
+            <SectionLabel>{{ t('profile.aggregated') }}</SectionLabel>
+            <ListGroup>
+                <ListRow
+                    :title="t('profile.aggregated')"
+                    :subtitle="aggregatedPreview"
+                    :interactive="false"
+                >
+                    <template #trailing>
+                        <div class="sub-actions">
+                            <IconButton :aria-label="t('common.copy')" variant="ghost" @click="copyUrl">
+                                <Check v-if="copied" :size="18" :stroke-width="1.75" />
+                                <Copy v-else :size="18" :stroke-width="1.75" />
+                            </IconButton>
+                            <IconButton :aria-label="t('profile.rotate')" variant="ghost" @click="rotateToken">
+                                <RotateCcw :size="18" :stroke-width="1.75" />
+                            </IconButton>
+                        </div>
+                    </template>
+                </ListRow>
+            </ListGroup>
+            <p class="sub-hint">{{ t('profile.aggregatedHint') }}</p>
+        </section>
+
+        <!-- Language -->
+        <section>
+            <SectionLabel>{{ t('profile.language') }}</SectionLabel>
+            <SegmentedControl
+                :model-value="store.user?.languageCode || 'en'"
+                :options="[
+                    { value: 'en', label: 'English' },
+                    { value: 'ru', label: 'Русский' },
+                ]"
+                :aria-label="t('profile.language')"
+                @update:model-value="setLang"
+            />
+        </section>
+
+        <!-- Support -->
+        <section v-if="store.config?.supportUrl">
+            <ListGroup>
+                <ListRow :title="t('profile.support')" chevron @click="openSupport">
+                    <template #leading>
+                        <LifeBuoy :size="20" :stroke-width="1.75" />
+                    </template>
+                </ListRow>
+            </ListGroup>
+        </section>
+    </div>
+</template>
+
+<style scoped>
+.identity-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+    background: var(--color-surface-raised);
+    color: var(--color-text-subtle);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 1px var(--color-separator) inset;
+}
+.identity-avatar__img { width: 100%; height: 100%; object-fit: cover; }
+
+.traffic-amount {
+    font-size: 13px;
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.sub-actions { display: inline-flex; gap: 4px; }
+
+.sub-hint {
+    margin: 10px 4px 0;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--color-text-hint);
+}
+</style>

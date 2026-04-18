@@ -81,6 +81,10 @@ export function installTelegramBridges() {
         }
         root.setAttribute('data-theme', webApp.colorScheme || 'dark');
         tgState.colorScheme = webApp.colorScheme || 'dark';
+
+        // If Telegram gives us a low-contrast hint colour, fall back to our
+        // local gray-6 so readability never collapses on exotic user themes.
+        enforceHintContrast(tp.hint_color, tp.bg_color);
     };
 
     const syncViewport = () => {
@@ -200,6 +204,49 @@ export const BackButton = {
         } catch (_) {}
     },
 };
+
+function parseColor(input) {
+    if (!input || typeof input !== 'string') return null;
+    const s = input.trim();
+    if (s.startsWith('#')) {
+        const hex = s.length === 4
+            ? s.slice(1).split('').map((c) => c + c).join('')
+            : s.slice(1);
+        if (hex.length !== 6) return null;
+        const n = parseInt(hex, 16);
+        if (Number.isNaN(n)) return null;
+        return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+    }
+    const m = s.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (m) return [+m[1], +m[2], +m[3]];
+    return null;
+}
+
+function relLuminance([r, g, b]) {
+    const chan = (c) => {
+        const v = c / 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b);
+}
+
+function contrastRatio(fg, bg) {
+    if (!fg || !bg) return null;
+    const l1 = relLuminance(fg);
+    const l2 = relLuminance(bg);
+    const [a, b] = l1 > l2 ? [l1, l2] : [l2, l1];
+    return (a + 0.05) / (b + 0.05);
+}
+
+function enforceHintContrast(hintColor, bgColor) {
+    const root = document.documentElement;
+    const ratio = contrastRatio(parseColor(hintColor), parseColor(bgColor));
+    if (ratio !== null && ratio < 3) {
+        root.style.setProperty('--color-text-hint', 'var(--color-gray-6)');
+    } else {
+        root.style.removeProperty('--color-text-hint');
+    }
+}
 
 export function showPopup(params) {
     return new Promise((resolve) => {

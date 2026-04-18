@@ -3,43 +3,108 @@
 @source '../views/miniapp/**/*.blade.php';
 @source '../js/miniapp/**/*.{js,vue}';
 
+/* ===========================================================================
+   Instrument — design tokens.
+   Dark is the source of truth. [data-theme="light"] overrides the grayscale
+   ramp below; Telegram themeParams win at runtime via var() fallbacks.
+=========================================================================== */
+
 @theme {
+    /* ---------- Typography ---------- */
     --font-sans:
-        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Ubuntu,
-        'Helvetica Neue', Helvetica, Arial, sans-serif,
-        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-    --font-mono: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+        'InterVariable', 'Inter', -apple-system, BlinkMacSystemFont,
+        'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji';
+    --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
 
-    /* Mini-app design tokens — bind to Telegram theme vars with sensible fallbacks */
-    --color-bg: var(--tg-theme-bg-color, #0b0c10);
-    --color-bg-secondary: var(--tg-theme-secondary-bg-color, #15171c);
-    --color-bg-section: var(--tg-theme-section-bg-color, #181a20);
-    --color-bg-header: var(--tg-theme-header-bg-color, #0b0c10);
-    --color-text: var(--tg-theme-text-color, #f5f6f7);
-    --color-text-hint: var(--tg-theme-hint-color, #8a8f98);
-    --color-text-subtitle: var(--tg-theme-subtitle-text-color, #a1a7b2);
-    --color-text-accent: var(--tg-theme-accent-text-color, #4aa7ff);
-    --color-link: var(--tg-theme-link-color, #4aa7ff);
-    --color-button: var(--tg-theme-button-color, #2aabee);
-    --color-button-text: var(--tg-theme-button-text-color, #ffffff);
-    --color-destructive: var(--tg-theme-destructive-text-color, #ff5256);
-    --color-separator: var(--tg-theme-section-separator-color, rgba(255, 255, 255, 0.06));
+    /* Type scale (line-height baked) */
+    --text-display: 28px;
+    --text-display--line-height: 34px;
+    --text-title: 20px;
+    --text-title--line-height: 26px;
+    --text-body: 15px;
+    --text-body--line-height: 22px;
+    --text-label: 13px;
+    --text-label--line-height: 18px;
+    --text-caption: 12px;
+    --text-caption--line-height: 16px;
 
-    --color-success: #30d158;
-    --color-warning: #ffcc00;
-    --color-danger: #ff453a;
+    /* ---------- Grayscale (dark) ---------- */
+    --color-gray-0: #0B0C10;
+    --color-gray-1: #121419;
+    --color-gray-2: #1A1D24;
+    --color-gray-3: #242832;
+    --color-gray-4: #353A45;
+    --color-gray-5: #565C6B;
+    --color-gray-6: #7A8190;
+    --color-gray-7: #A1A7B2;
+    --color-gray-8: #D5D8DE;
+    --color-gray-9: #F5F6F7;
 
-    --radius-card: 20px;
-    --radius-button: 14px;
-    --radius-chip: 9999px;
+    /* ---------- Semantic (Telegram-bound, with grayscale fallbacks) ---------- */
+    --color-bg:             var(--tg-theme-bg-color, var(--color-gray-0));
+    --color-surface:        var(--tg-theme-section-bg-color, var(--color-gray-1));
+    --color-surface-raised: var(--color-gray-2);
+    --color-text:           var(--tg-theme-text-color, var(--color-gray-9));
+    --color-text-subtle:    var(--tg-theme-subtitle-text-color, var(--color-gray-7));
+    --color-text-hint:      var(--tg-theme-hint-color, var(--color-gray-6));
+    --color-separator:      var(--tg-theme-section-separator-color, rgba(255, 255, 255, 0.07));
+    --color-accent:         var(--tg-theme-button-color, #2AABEE);
+    --color-accent-text:    var(--tg-theme-button-text-color, #FFFFFF);
+    --color-accent-hot:     color-mix(in oklch, var(--color-accent) 78%, white);
+    --color-destructive:    var(--tg-theme-destructive-text-color, #FF453A);
+    --color-success:        #30D158;
+    --color-warning:        #FFCC00;
 
-    --shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -16px rgba(0, 0, 0, 0.55);
-    --shadow-press: 0 2px 12px rgba(0, 0, 0, 0.3);
+    /* ---------- Radii ---------- */
+    --radius-sm:   8px;
+    --radius-md:   14px;
+    --radius-pill: 9999px;
 
+    /* ---------- Spacing (4pt scale) ---------- */
+    --spacing-1:  4px;
+    --spacing-2:  8px;
+    --spacing-3:  12px;
+    --spacing-4:  16px;
+    --spacing-5:  20px;
+    --spacing-6:  24px;
+    --spacing-8:  32px;
+    --spacing-12: 48px;
+
+    /* ---------- Elevation (floating surfaces only) ---------- */
+    --shadow-floating:
+        0 12px 32px -12px rgba(0, 0, 0, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset;
+
+    /* ---------- Motion ---------- */
     --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+    --duration-fast: 120ms;
+    --duration-base: 200ms;
+    --duration-slow: 320ms;
 
-    --safe-top: env(safe-area-inset-top, 0px);
+    /* ---------- Safe area ---------- */
+    --safe-top:    env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---------- Light mode overrides ---------- */
+[data-theme="light"] {
+    --color-gray-0: #FFFFFF;
+    --color-gray-1: #F7F8FA;
+    --color-gray-2: #EFF1F5;
+    --color-gray-3: #E4E7EC;
+    --color-gray-4: #CDD2DB;
+    --color-gray-5: #9AA0AC;
+    --color-gray-6: #6E7580;
+    --color-gray-7: #4A4F59;
+    --color-gray-8: #23262C;
+    --color-gray-9: #0B0C10;
+
+    --color-separator: rgba(0, 0, 0, 0.08);
+    --shadow-floating:
+        0 12px 32px -12px rgba(15, 23, 42, 0.18),
+        0 1px 0 rgba(255, 255, 255, 0.6) inset;
 }
 
 /* =============== base reset =============== */
@@ -52,6 +117,7 @@ html {
     background: var(--color-bg);
     color: var(--color-text);
     font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01', 'calt';
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -73,126 +139,65 @@ body {
 * { box-sizing: border-box; }
 
 button { font: inherit; color: inherit; background: transparent; border: 0; padding: 0; cursor: pointer; }
-
 input, select, textarea { font: inherit; color: inherit; }
 
-/* =============== utilities =============== */
+/* =============== shared utilities =============== */
 
 .pb-safe { padding-bottom: calc(var(--safe-bottom) + 16px); }
 .pt-safe { padding-top: calc(var(--safe-top) + 8px); }
 
-.card {
-    background: var(--color-bg-section);
-    border-radius: var(--radius-card);
-    box-shadow: var(--shadow-card);
-    border: 1px solid var(--color-separator);
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum', 'cv11';
 }
 
-.chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: var(--radius-chip);
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--color-text-subtitle);
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.4;
-    white-space: nowrap;
-}
-
-.chip--recommended {
-    background: color-mix(in srgb, var(--color-success) 18%, transparent);
-    color: var(--color-success);
-}
-
-.chip--coming {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--color-text-hint);
-}
-
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 14px 18px;
-    border-radius: var(--radius-button);
-    font-weight: 600;
-    font-size: 16px;
-    transition: transform 180ms var(--ease-spring), opacity 180ms var(--ease-spring), background 180ms var(--ease-spring);
-    will-change: transform;
-}
-
-.btn--primary {
-    background: var(--color-button);
-    color: var(--color-button-text);
-}
-
-.btn--secondary {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--color-text);
-}
-
-.btn:active { transform: scale(0.97); }
-.btn:disabled { opacity: 0.55; cursor: not-allowed; }
-
-.hairline {
-    border-bottom: 1px solid var(--color-separator);
-}
-
-.pill-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 9999px;
-    flex-shrink: 0;
-}
-
-/* =============== page transitions =============== */
+/* =============== page transitions (120ms crossfade) =============== */
 
 .page-enter-active,
 .page-leave-active {
-    transition: opacity 220ms var(--ease-spring), transform 260ms var(--ease-spring);
+    transition: opacity var(--duration-fast) var(--ease-out);
 }
-.page-enter-from {
-    opacity: 0;
-    transform: translate3d(0, 10px, 0);
-}
+.page-enter-from,
 .page-leave-to {
     opacity: 0;
-    transform: translate3d(0, -6px, 0);
+}
+.page-leave-active {
     position: absolute;
     inset: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
     .page-enter-active,
-    .page-leave-active,
-    .btn {
-        transition: none;
-    }
-    .btn:active { transform: none; }
+    .page-leave-active { transition: none; }
 }
 
 /* =============== scrollbar polish (desktop) =============== */
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: var(--color-gray-3); border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* =============== skeleton shimmer =============== */
 
 .skeleton {
     background:
-        linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.10) 37%, rgba(255,255,255,0.04) 63%)
+        linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--color-text) 4%, transparent) 25%,
+            color-mix(in srgb, var(--color-text) 8%, transparent) 37%,
+            color-mix(in srgb, var(--color-text) 4%, transparent) 63%
+        )
         0 0 / 400px 100% no-repeat,
-        var(--color-bg-section);
+        var(--color-surface);
     animation: skel 1.4s ease-in-out infinite;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
 }
 
 @keyframes skel {
     0% { background-position: -200px 0; }
     100% { background-position: 600px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton { animation-duration: 5s; }
 }

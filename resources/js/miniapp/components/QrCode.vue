@@ -4,18 +4,31 @@ import { useQr } from '../composables/useQr.js';
 
 const props = defineProps({
     value: { type: String, default: '' },
-    size: { type: Number, default: 180 },
+    size: { type: Number, default: 200 },
 });
 
-const { dataUrl } = useQr(toRef(props, 'value'), { dark: '#f5f6f7', light: '#00000000' });
+const { dataUrl } = useQr(toRef(props, 'value'), { dark: '#F5F6F7', light: '#00000000' });
 </script>
 
 <template>
-    <div
-        class="flex items-center justify-center rounded-2xl p-3"
-        :style="{ width: (size + 24) + 'px', height: (size + 24) + 'px', background: 'rgba(255,255,255,0.04)' }"
-    >
-        <img v-if="dataUrl" :src="dataUrl" :alt="value" :width="size" :height="size" />
-        <div v-else class="skeleton" :style="{ width: size + 'px', height: size + 'px' }" />
+    <div class="qr">
+        <img v-if="dataUrl" :src="dataUrl" :alt="value" :width="size" :height="size" class="qr__img" />
+        <div v-else class="skeleton qr__skel" :style="{ width: size + 'px', height: size + 'px' }" />
     </div>
 </template>
+
+<style scoped>
+.qr {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: var(--color-surface-raised);
+    border-radius: var(--radius-md);
+    box-shadow: 0 0 0 1px var(--color-separator) inset;
+}
+.qr__img { display: block; }
+.qr__skel { border-radius: var(--radius-sm); }
+
+[data-theme="light"] .qr__img { filter: invert(1); }
+</style>

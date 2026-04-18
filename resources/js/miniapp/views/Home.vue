@@ -1,109 +1,109 @@
 <script setup>
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { Shield, Gauge as GaugeIcon, Globe2, User } from 'lucide-vue-next';
+
 import { store } from '../store.js';
 import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
-import ServerCard from '../components/ServerCard.vue';
+
 import Skeleton from '../components/Skeleton.vue';
+import ServerStatusHero from '../components/ServerStatusHero.vue';
+import {
+    Button, SectionLabel, ListGroup, ListRow,
+} from '../components/ui/index.js';
 
 const router = useRouter();
 
-const featured = computed(() => {
-    const pool = store.availableServers;
-    if (!pool.length) return [];
-    const seed = store.recommendedServer;
-    const rest = pool.filter((s) => s !== seed);
-    return [seed, ...rest.slice(0, 3)].filter(Boolean);
-});
+const recommended = computed(() => store.recommendedServer);
+const availableCount = computed(() => store.availableServers.length);
 
-function go(server) {
-    if (server.isComingSoon) {
-        hap.warning();
-        return;
-    }
+function connect() {
+    if (!recommended.value) return;
     hap.select();
-    router.push(`/servers/${server.slug}`);
+    router.push(`/servers/${recommended.value.slug}`);
 }
 
 function openServers() {
     hap.select();
     router.push('/servers');
 }
-
 function openTools() {
     hap.select();
     router.push('/tools');
 }
+function openProfile() {
+    hap.select();
+    router.push('/profile');
+}
 </script>
 
 <template>
-    <div class="pt-2 space-y-5">
-        <!-- Aurora hero -->
-        <div class="relative overflow-hidden card p-5">
-            <div aria-hidden="true"
-                 class="absolute inset-0 pointer-events-none"
-                 style="background:
-                    radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, var(--color-button) 28%, transparent) 0%, transparent 60%),
-                    radial-gradient(120% 100% at 100% 100%, color-mix(in srgb, var(--color-success) 16%, transparent) 0%, transparent 60%);
-                    opacity: 0.65;"
-            />
-            <div class="relative">
-                <div class="text-xs uppercase tracking-widest" style="color: var(--color-text-hint)">
-                    {{ t('home.recommended') }}
-                </div>
-                <div v-if="store.recommendedServer" class="mt-2 flex items-center gap-3">
-                    <div class="text-3xl">{{ store.recommendedServer.flagEmoji }}</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-[22px] font-semibold truncate">{{ store.recommendedServer.name }}</div>
-                        <div class="text-xs" style="color: var(--color-text-subtitle)">
-                            {{ store.recommendedServer.city }}<span v-if="store.recommendedServer.city">, </span>{{ store.recommendedServer.country }}
-                        </div>
-                    </div>
-                </div>
-                <div v-else class="mt-2 text-[22px] font-semibold opacity-80">{{ t('common.loading') }}</div>
-
-                <button
-                    class="btn btn--primary w-full mt-5"
-                    :disabled="!store.recommendedServer"
-                    @click="go(store.recommendedServer)"
+    <div class="px-4 space-y-6">
+        <!-- Hero -->
+        <Skeleton v-if="!store.servers.length" :height="160" />
+        <ServerStatusHero v-else :server="recommended">
+            <template #action>
+                <Button
+                    variant="primary"
+                    block
+                    :disabled="!recommended"
+                    @click="connect"
                 >
                     {{ t('server.connect') }}
-                </button>
-            </div>
-        </div>
+                </Button>
+            </template>
+        </ServerStatusHero>
 
-        <!-- Server rail -->
+        <!-- Servers -->
         <section>
-            <div class="flex items-center justify-between px-1 mb-2">
-                <h2 class="text-sm font-semibold" style="color: var(--color-text)">
-                    {{ t('home.allServers') }}
-                </h2>
-                <button class="text-sm" style="color: var(--color-text-accent)" @click="openServers">
-                    {{ t('home.seeAll') }}
-                </button>
-            </div>
-            <div v-if="!store.servers.length" class="space-y-2">
-                <Skeleton v-for="i in 3" :key="i" :height="74" />
-            </div>
-            <div v-else class="space-y-2">
-                <ServerCard v-for="s in featured" :key="s.slug" :server="s" @click="go" />
-            </div>
+            <SectionLabel>{{ t('servers.title') }}</SectionLabel>
+            <ListGroup>
+                <ListRow
+                    :title="t('home.allServers')"
+                    :subtitle="availableCount > 0 ? `${availableCount} gateways` : ''"
+                    chevron
+                    @click="openServers"
+                >
+                    <template #leading>
+                        <Globe2 :size="20" :stroke-width="1.75" />
+                    </template>
+                </ListRow>
+            </ListGroup>
         </section>
 
-        <!-- Quick tools -->
+        <!-- Tools -->
         <section>
-            <div class="px-1 mb-2 text-sm font-semibold">{{ t('home.quickTools') }}</div>
-            <div class="grid grid-cols-2 gap-2">
-                <button class="card p-4 text-left active:scale-[0.98] transition" @click="openTools">
-                    <div class="text-2xl mb-2">🛡️</div>
-                    <div class="text-sm font-medium">{{ t('home.toolsIp') }}</div>
-                </button>
-                <button class="card p-4 text-left active:scale-[0.98] transition" @click="openTools">
-                    <div class="text-2xl mb-2">⚡</div>
-                    <div class="text-sm font-medium">{{ t('home.toolsSpeed') }}</div>
-                </button>
-            </div>
+            <SectionLabel>{{ t('home.quickTools') }}</SectionLabel>
+            <ListGroup>
+                <ListRow :title="t('home.toolsIp')" chevron @click="openTools">
+                    <template #leading>
+                        <Shield :size="20" :stroke-width="1.75" />
+                    </template>
+                </ListRow>
+                <ListRow :title="t('home.toolsSpeed')" chevron @click="openTools">
+                    <template #leading>
+                        <GaugeIcon :size="20" :stroke-width="1.75" />
+                    </template>
+                </ListRow>
+            </ListGroup>
+        </section>
+
+        <!-- Account -->
+        <section>
+            <SectionLabel>Account</SectionLabel>
+            <ListGroup>
+                <ListRow
+                    :title="store.user?.displayName || t('profile.title')"
+                    :subtitle="t('profile.memberSince')"
+                    chevron
+                    @click="openProfile"
+                >
+                    <template #leading>
+                        <User :size="20" :stroke-width="1.75" />
+                    </template>
+                </ListRow>
+            </ListGroup>
         </section>
     </div>
 </template>

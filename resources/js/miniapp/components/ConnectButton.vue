@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { MainButton, hap, openDeepLink } from '../telegram.js';
 import { t } from '../i18n.js';
+import { Button } from './ui/index.js';
 
 const props = defineProps({
     enabled: { type: Boolean, default: true },
@@ -20,9 +21,7 @@ async function fire() {
     MainButton.setProgress(true);
     try {
         const deep = await props.onClick();
-        if (deep) {
-            openDeepLink(deep);
-        }
+        if (deep) openDeepLink(deep);
         hap.success();
     } catch (_) {
         hap.error();
@@ -47,12 +46,7 @@ onBeforeUnmount(() => {
 
 <template>
     <!-- In-page fallback for when MainButton isn't available (dev / web preview) -->
-    <button
-        class="btn btn--primary w-full"
-        :disabled="!enabled || busy"
-        @click="fire"
-    >
-        <span v-if="busy">{{ t('server.connecting') }}</span>
-        <span v-else>{{ label || t('server.connect') }}</span>
-    </button>
+    <Button variant="primary" block :loading="busy" :disabled="!enabled" @click="fire">
+        {{ busy ? t('server.connecting') : (label || t('server.connect')) }}
+    </Button>
 </template>

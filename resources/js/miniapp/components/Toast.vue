@@ -11,7 +11,7 @@ const dotClass = computed(() => {
         case 'success': return 'toast__dot--success';
         case 'error':   return 'toast__dot--error';
         case 'warning': return 'toast__dot--warning';
-        default:        return 'toast__dot--accent';
+        default:        return 'toast__dot--info';
     }
 });
 </script>
@@ -30,18 +30,17 @@ const dotClass = computed(() => {
     position: fixed;
     left: 50%;
     transform: translateX(-50%);
-    bottom: calc(var(--safe-bottom) + 88px);
+    bottom: calc(var(--safe-bottom) + 24px);
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 16px;
+    padding: 12px 16px;
     min-width: 200px;
-    max-width: 88vw;
+    max-width: 360px;
     background: var(--color-surface-raised);
-    color: var(--color-text);
+    color: var(--color-text-strong);
     border-radius: var(--radius-md);
-    border: 1px solid var(--color-separator);
-    box-shadow: var(--shadow-floating);
+    box-shadow: var(--shadow-toast);
     font-size: 13px;
     line-height: 18px;
     z-index: 50;
@@ -54,18 +53,18 @@ const dotClass = computed(() => {
     flex-shrink: 0;
 }
 .toast__dot--success { background: var(--color-success); }
-.toast__dot--error   { background: var(--color-destructive); }
+.toast__dot--error   { background: var(--color-danger); }
 .toast__dot--warning { background: var(--color-warning); }
-.toast__dot--accent  { background: var(--color-accent); }
+.toast__dot--info    { background: var(--color-text-subtle); }
 
 .toast__msg { flex: 1 1 auto; }
 
 .toast-enter-active, .toast-leave-active {
-    transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out);
+    transition: opacity var(--duration-slow) var(--ease-standard), transform var(--duration-slow) var(--ease-standard);
 }
 .toast-enter-from, .toast-leave-to {
     opacity: 0;
-    transform: translate(-50%, 6px);
+    transform: translate(-50%, 8px);
 }
 .toast-enter-to, .toast-leave-from {
     opacity: 1;

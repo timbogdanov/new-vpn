@@ -1,28 +1,27 @@
 <script setup>
 import { computed } from 'vue';
 import FlagIcon from './FlagIcon.vue';
-import { Chip } from './ui/index.js';
+import { Chip, Button } from './ui/index.js';
 import { t } from '../i18n.js';
+import { hap } from '../telegram.js';
 
 const props = defineProps({
     server: { type: Object, default: null },
-    ping: { type: Number, default: null },
-    loading: { type: Boolean, default: false },
     status: {
         type: String,
         default: 'idle',
-        validator: (v) => ['idle', 'provisioning', 'connected', 'trial-ending', 'expired'].includes(v),
+        validator: (v) => ['idle', 'ready', 'connecting', 'connected', 'trial-ending', 'expired'].includes(v),
     },
+    ping: { type: Number, default: null },
 });
 
-const hasServer = computed(() => !!props.server);
+const emit = defineEmits(['connect', 'choose', 'paywall']);
 
 const statusTone = computed(() => {
     switch (props.status) {
         case 'connected':    return 'accent';
         case 'trial-ending': return 'warning';
         case 'expired':      return 'danger';
-        case 'provisioning': return 'neutral';
         default:             return 'neutral';
     }
 });
@@ -30,11 +29,20 @@ const statusTone = computed(() => {
 const statusLabel = computed(() => {
     switch (props.status) {
         case 'connected':    return t('server.connected');
+        case 'connecting':   return t('server.connecting');
         case 'trial-ending': return t('billing.trialActive');
         case 'expired':      return t('billing.expired');
-        case 'provisioning': return t('server.connecting');
+        case 'idle':         return t('home.noLastServer');
         default:             return t('home.recommended');
     }
+});
+
+const primaryLabel = computed(() => {
+    if (props.status === 'connected')    return t('server.disconnect') || t('common.close');
+    if (props.status === 'expired')      return t('billing.renew');
+    if (props.status === 'trial-ending') return t('billing.upgrade');
+    if (props.status === 'idle' || !props.server) return t('servers.title');
+    return t('server.connect');
 });
 
 const loadLabel = computed(() => {
@@ -44,36 +52,47 @@ const loadLabel = computed(() => {
     if (p >= 40) return t('server.loadModerate');
     return t('server.loadLow');
 });
+
+function fire() {
+    hap.medium();
+    if (props.status === 'expired' || props.status === 'trial-ending') {
+        emit('paywall');
+        return;
+    }
+    if (!props.server || props.status === 'idle') {
+        emit('choose');
+        return;
+    }
+    emit('connect');
+}
 </script>
 
 <template>
     <section class="hero">
-        <div class="hero__header">
+        <div class="hero__status">
             <Chip :tone="statusTone" dot>{{ statusLabel }}</Chip>
         </div>
 
         <div class="hero__body">
-            <FlagIcon v-if="hasServer" :code="server.countryCode" :size="32" />
-            <div class="hero__name-block">
-                <h1 class="hero__title">{{ hasServer ? server.name : '—' }}</h1>
-                <p v-if="hasServer && (server.city || server.country)" class="hero__location">
-                    {{ [server.city, server.country].filter(Boolean).join(', ') }}
+            <FlagIcon v-if="server" :code="server.countryCode" :size="28" />
+            <div class="hero__name">
+                <h2 class="hero__title">{{ server ? server.name : t('servers.empty') }}</h2>
+                <p v-if="server" class="hero__location">
+                    {{ [server.city, server.country].filter(Boolean).join(', ') || '—' }}
                 </p>
             </div>
         </div>
 
-        <div v-if="hasServer && (ping != null || loadLabel)" class="hero__meta">
-            <span v-if="ping != null" class="hero__meta-item">
-                <span class="hero__meta-value">{{ Math.round(ping) }}ms</span>
-            </span>
+        <div v-if="server && (ping != null || loadLabel)" class="hero__meta">
+            <span v-if="ping != null" class="hero__meta-value">{{ Math.round(ping) }}ms</span>
             <span v-if="ping != null && loadLabel" class="hero__meta-sep" aria-hidden="true">·</span>
-            <span v-if="loadLabel" class="hero__meta-item">
-                <span class="hero__meta-value">{{ loadLabel }}</span>
-            </span>
+            <span v-if="loadLabel" class="hero__meta-value">{{ loadLabel }}</span>
         </div>
 
-        <div v-if="$slots.action" class="hero__action">
-            <slot name="action" />
+        <div class="hero__action">
+            <Button variant="primary" block @click="fire">
+                {{ primaryLabel }}
+            </Button>
         </div>
     </section>
 </template>
@@ -88,7 +107,7 @@ const loadLabel = computed(() => {
     gap: 16px;
 }
 
-.hero__header {
+.hero__status {
     display: flex;
     align-items: center;
 }
@@ -99,7 +118,7 @@ const loadLabel = computed(() => {
     gap: 12px;
 }
 
-.hero__name-block {
+.hero__name {
     flex: 1 1 auto;
     min-width: 0;
     display: flex;
@@ -136,7 +155,6 @@ const loadLabel = computed(() => {
     color: var(--color-text-subtle);
     font-variant-numeric: tabular-nums;
 }
-.hero__meta-value { color: var(--color-text-subtle); }
 .hero__meta-sep { color: var(--color-text-hint); }
 
 .hero__action { margin-top: 4px; }

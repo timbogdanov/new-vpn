@@ -1,5 +1,5 @@
 <script setup>
-const props = defineProps({
+defineProps({
     variant: {
         type: String,
         default: 'ghost',
@@ -31,22 +31,25 @@ defineEmits(['click']);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-sm);
-    color: var(--color-text);
-    transition: background var(--duration-base) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+    border-radius: var(--radius-pill);
+    color: var(--color-text-subtle);
+    transition: background var(--duration-fast) var(--ease-standard);
 }
 
 .ui-icon-btn--ghost { background: transparent; }
 .ui-icon-btn--filled {
     background: var(--color-surface-raised);
-    box-shadow: 0 0 0 1px var(--color-separator) inset;
 }
 
-.ui-icon-btn:active:not(:disabled) { transform: scale(0.94); }
+.ui-icon-btn:active:not(:disabled) {
+    background: var(--color-surface-raised);
+}
+.ui-icon-btn--filled:active:not(:disabled) {
+    background: color-mix(in srgb, var(--color-text-strong) 8%, var(--color-surface-raised));
+}
 .ui-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
     .ui-icon-btn { transition: none; }
-    .ui-icon-btn:active:not(:disabled) { transform: none; }
 }
 </style>

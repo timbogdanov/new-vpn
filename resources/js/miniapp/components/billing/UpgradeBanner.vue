@@ -1,47 +1,68 @@
 <script setup>
-import { Button } from '../ui/index.js';
 import { t } from '../../i18n.js';
 
 defineProps({
     title: { type: String, required: true },
     body: { type: String, default: '' },
     cta: { type: String, default: '' },
-    severity: { type: String, default: 'info' }, // info | warn | danger
+    severity: {
+        type: String,
+        default: 'info',
+        validator: (v) => ['info', 'warn', 'danger'].includes(v),
+    },
 });
 const emit = defineEmits(['cta']);
 </script>
 
 <template>
-    <div class="upgrade-banner" :class="`upgrade-banner--${severity}`">
-        <div class="upgrade-banner__copy">
-            <p class="upgrade-banner__title">{{ title }}</p>
-            <p v-if="body" class="upgrade-banner__body">{{ body }}</p>
+    <div class="banner" :class="`banner--${severity}`">
+        <div class="banner__copy">
+            <p class="banner__title">{{ title }}</p>
+            <p v-if="body" class="banner__body">{{ body }}</p>
         </div>
-        <Button size="sm" :variant="severity === 'danger' ? 'destructive' : 'primary'" @click="emit('cta')">
+        <button type="button" class="banner__cta" @click="emit('cta')">
             {{ cta || t('billing.upgrade') }}
-        </Button>
+        </button>
     </div>
 </template>
 
 <style scoped>
-.upgrade-banner {
+.banner {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     border-radius: var(--radius-md);
-    border: 1px solid var(--color-separator);
-    background: var(--color-surface);
+    background: var(--color-surface-raised);
+    border-left: 3px solid var(--color-text-subtle);
 }
-.upgrade-banner--warn {
-    background: color-mix(in oklch, var(--color-warning) 12%, var(--color-surface));
-    border-color: color-mix(in oklch, var(--color-warning) 35%, var(--color-separator));
+.banner--info   { border-left-color: var(--color-accent); }
+.banner--warn   { border-left-color: var(--color-warning); }
+.banner--danger { border-left-color: var(--color-danger); }
+
+.banner__copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.banner__title {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+    color: var(--color-text-strong);
+    margin: 0;
 }
-.upgrade-banner--danger {
-    background: color-mix(in oklch, var(--color-destructive) 12%, var(--color-surface));
-    border-color: color-mix(in oklch, var(--color-destructive) 35%, var(--color-separator));
+.banner__body {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--color-text-subtle);
+    margin: 0;
 }
-.upgrade-banner__copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.upgrade-banner__title { font-size: var(--text-body); font-weight: 600; margin: 0; }
-.upgrade-banner__body { font-size: var(--text-label); color: var(--color-text-subtle); margin: 0; }
+.banner__cta {
+    flex-shrink: 0;
+    padding: 6px 4px;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+    color: var(--color-accent);
+    white-space: nowrap;
+    transition: color var(--duration-fast) var(--ease-standard);
+}
+.banner__cta:active { color: var(--color-accent-pressed); }
 </style>

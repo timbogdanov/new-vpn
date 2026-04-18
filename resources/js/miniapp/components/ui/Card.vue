@@ -21,14 +21,13 @@ defineProps({
 <style scoped>
 .ui-card {
     background: var(--color-surface);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--color-separator);
+    border-radius: var(--radius-lg);
 }
 
 .ui-card--raised { background: var(--color-surface-raised); }
 
 .ui-card--p-none { padding: 0; }
 .ui-card--p-sm   { padding: 12px; }
-.ui-card--p-md   { padding: 20px; }
-.ui-card--p-lg   { padding: 24px; }
+.ui-card--p-md   { padding: 16px; }
+.ui-card--p-lg   { padding: 20px; }
 </style>

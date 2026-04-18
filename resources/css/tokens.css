@@ -1,80 +1,90 @@
 /* ===========================================================================
    Design tokens — single source of truth.
    Imported by resources/css/miniapp.css. Tailwind v4 picks these up via @theme.
-   Brand: Cobalt — secure/trustworthy, reads distinct from Telegram's blue.
+
+   System: Quiet Premium (see DESIGN.md / plans/you-have-a-design-snazzy-whisper.md)
+   - Editorial restraint on a dark neutral canvas
+   - Geist (UI) + Instrument Serif (display, Latin only) + Geist Mono (numbers)
+   - Cobalt accent, used rarely
+   - No gradients. Elevation via bg contrast.
 =========================================================================== */
 
 @theme {
     /* ---------- Typography ---------- */
     --font-sans:
-        'InterVariable', 'Inter', -apple-system, BlinkMacSystemFont,
+        'Geist', -apple-system, BlinkMacSystemFont,
         'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji';
     --font-display:
         'Instrument Serif', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
-    --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    --font-mono:
+        'Geist Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
 
-    /* Type scale (line-height baked) */
-    --text-display: 30px;
-    --text-display--line-height: 36px;
+    /* Type scale (size / line-height / weight defined in @utility blocks below) */
+    --text-display-xl: 36px;
+    --text-display-xl--line-height: 44px;
+    --text-display: 28px;
+    --text-display--line-height: 34px;
     --text-title: 20px;
     --text-title--line-height: 26px;
+    --text-subtitle: 17px;
+    --text-subtitle--line-height: 24px;
     --text-body: 15px;
     --text-body--line-height: 22px;
     --text-label: 13px;
     --text-label--line-height: 18px;
     --text-caption: 12px;
     --text-caption--line-height: 16px;
+    --text-eyebrow: 11px;
+    --text-eyebrow--line-height: 14px;
+    --text-mono-md: 15px;
+    --text-mono-md--line-height: 22px;
+    --text-mono-sm: 13px;
+    --text-mono-sm--line-height: 18px;
 
     /* ---------- Grayscale (dark) ---------- */
-    --color-gray-0: #0A0F1F;
-    --color-gray-1: #11172A;
-    --color-gray-2: #181E33;
-    --color-gray-3: #232940;
-    --color-gray-4: #353C55;
-    --color-gray-5: #565E78;
-    --color-gray-6: #7A8298;
-    --color-gray-7: #A1A8BC;
-    --color-gray-8: #D5D9E5;
-    --color-gray-9: #F6F7FB;
+    --color-gray-0: #0B0D12;
+    --color-gray-1: #12151C;
+    --color-gray-2: #1A1E27;
+    --color-gray-3: #252A35;
+    --color-gray-4: #363C49;
+    --color-gray-5: #495164;
+    --color-gray-6: #6D768C;
+    --color-gray-7: #9AA3B8;
+    --color-gray-8: #C7CEDC;
+    --color-gray-9: #F1F3F8;
 
-    /* ---------- Brand: Cobalt ---------- */
-    --color-brand:        #3B5BFF;
-    --color-brand-hot:    #5B79FF;
-    --color-brand-deep:   #1B2EAA;
+    /* ---------- Accent: Cobalt (used rarely) ---------- */
+    --color-brand:          #3B5BFF;
+    --color-brand-hover:    #334FE6;
+    --color-brand-pressed:  #2A42C2;
 
     /* ---------- Semantic (Telegram-bound, with brand fallbacks) ---------- */
     --color-bg:             var(--tg-theme-bg-color, var(--color-gray-0));
     --color-surface:        var(--tg-theme-section-bg-color, var(--color-gray-1));
     --color-surface-raised: var(--color-gray-2);
-    --color-text:           var(--tg-theme-text-color, var(--color-gray-9));
+    --color-text-strong:    var(--tg-theme-text-color, var(--color-gray-9));
+    --color-text:           var(--color-gray-8);
     --color-text-subtle:    var(--tg-theme-subtitle-text-color, var(--color-gray-7));
     --color-text-hint:      var(--tg-theme-hint-color, var(--color-gray-6));
-    --color-separator:      var(--tg-theme-section-separator-color, rgba(255, 255, 255, 0.07));
-    --color-accent:         var(--tg-theme-button-color, var(--color-brand));
-    --color-accent-text:    var(--tg-theme-button-text-color, #FFFFFF);
-    --color-accent-hot:     color-mix(in oklch, var(--color-accent) 78%, white);
-    --color-destructive:    var(--tg-theme-destructive-text-color, #FF453A);
-    --color-success:        #30D158;
-    --color-warning:        #FFCC00;
+    --color-separator:      var(--tg-theme-section-separator-color, rgba(255, 255, 255, 0.06));
+    --color-border-weak:    rgba(255, 255, 255, 0.08);
 
-    /* ---------- Gradients ---------- */
-    --gradient-aurora:
-        linear-gradient(135deg, #3B5BFF 0%, #7C5CFF 50%, #22D3EE 100%);
-    --gradient-calm:
-        linear-gradient(180deg, color-mix(in oklch, var(--color-brand) 14%, transparent) 0%, transparent 70%);
-    --gradient-danger:
-        linear-gradient(135deg, color-mix(in oklch, var(--color-destructive) 35%, transparent) 0%, transparent 80%);
-    --gradient-mesh:
-        radial-gradient(ellipse at 20% 0%, color-mix(in oklch, var(--color-brand) 22%, transparent) 0%, transparent 55%),
-        radial-gradient(ellipse at 80% 30%, color-mix(in oklch, #7C5CFF 18%, transparent) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 100%, color-mix(in oklch, #22D3EE 14%, transparent) 0%, transparent 60%);
+    --color-accent:         var(--tg-theme-button-color, var(--color-brand));
+    --color-accent-hover:   var(--color-brand-hover);
+    --color-accent-pressed: var(--color-brand-pressed);
+    --color-accent-tint:    rgba(59, 91, 255, 0.08);
+    --color-accent-text:    var(--tg-theme-button-text-color, #FFFFFF);
+
+    --color-success:        #22C55E;
+    --color-warning:        #F59E0B;
+    --color-danger:         var(--tg-theme-destructive-text-color, #EF4444);
 
     /* ---------- Radii ---------- */
-    --radius-sm:   8px;
-    --radius-md:   14px;
-    --radius-lg:   20px;
-    --radius-xl:   28px;
+    --radius-sm:   6px;
+    --radius-md:   10px;
+    --radius-lg:   16px;
+    --radius-xl:   20px;
     --radius-pill: 9999px;
 
     /* ---------- Spacing (4pt scale) ---------- */
@@ -85,26 +95,20 @@
     --spacing-5:  20px;
     --spacing-6:  24px;
     --spacing-8:  32px;
+    --spacing-10: 40px;
     --spacing-12: 48px;
+    --spacing-16: 64px;
 
-    /* ---------- Elevation ---------- */
-    --shadow-card:
-        0 4px 12px -4px rgba(0, 0, 0, 0.35),
-        0 1px 0 rgba(255, 255, 255, 0.04) inset;
-    --shadow-floating:
-        0 12px 32px -12px rgba(0, 0, 0, 0.55),
-        0 1px 0 rgba(255, 255, 255, 0.04) inset;
-    --shadow-hero:
-        0 24px 60px -20px color-mix(in oklch, var(--color-brand) 55%, transparent),
-        0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    /* ---------- Elevation (cards/buttons/hero have none) ---------- */
+    --shadow-sheet: 0 24px 48px -16px rgba(0, 0, 0, 0.55);
+    --shadow-toast: 0 8px 24px -8px rgba(0, 0, 0, 0.45);
 
     /* ---------- Motion ---------- */
-    --ease-spring:     cubic-bezier(0.22, 1, 0.36, 1);
-    --ease-out:        cubic-bezier(0.16, 1, 0.3, 1);
-    --ease-anticipate: cubic-bezier(0.36, 0, 0.66, -0.56);
+    --ease-standard:   cubic-bezier(0.2, 0, 0.2, 1);
+    --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
     --duration-fast: 120ms;
-    --duration-base: 200ms;
-    --duration-slow: 320ms;
+    --duration-base: 180ms;
+    --duration-slow: 260ms;
 
     /* ---------- Safe area ---------- */
     --safe-top:    env(safe-area-inset-top, 0px);
@@ -114,24 +118,29 @@
 /* ---------- Light mode overrides ---------- */
 [data-theme="light"] {
     --color-gray-0: #FFFFFF;
-    --color-gray-1: #F7F8FA;
-    --color-gray-2: #EFF1F5;
-    --color-gray-3: #E4E7EC;
-    --color-gray-4: #CDD2DB;
-    --color-gray-5: #9AA0AC;
-    --color-gray-6: #6E7580;
-    --color-gray-7: #4A4F59;
-    --color-gray-8: #23262C;
-    --color-gray-9: #0B0C10;
+    --color-gray-1: #F5F6F9;
+    --color-gray-2: #FFFFFF;
+    --color-gray-3: #E9ECF2;
+    --color-gray-4: #D5D9E2;
+    --color-gray-5: #9DA3B3;
+    --color-gray-6: #6E7686;
+    --color-gray-7: #4A5060;
+    --color-gray-8: #1F2430;
+    --color-gray-9: #0B0D12;
 
-    --color-separator: rgba(0, 0, 0, 0.08);
-    --shadow-card:
-        0 4px 12px -4px rgba(15, 23, 42, 0.08),
-        0 1px 0 rgba(255, 255, 255, 0.6) inset;
-    --shadow-floating:
-        0 12px 32px -12px rgba(15, 23, 42, 0.18),
-        0 1px 0 rgba(255, 255, 255, 0.6) inset;
-    --shadow-hero:
-        0 24px 60px -20px color-mix(in oklch, var(--color-brand) 35%, transparent),
-        0 1px 0 rgba(255, 255, 255, 0.6) inset;
+    --color-surface-raised: #FFFFFF;
+    --color-separator:      rgba(0, 0, 0, 0.08);
+    --color-border-weak:    rgba(0, 0, 0, 0.10);
+
+    --color-brand:          #2D4BE6;
+    --color-brand-hover:    #243FC7;
+    --color-brand-pressed:  #1E35A8;
+    --color-accent-tint:    rgba(45, 75, 230, 0.08);
+
+    --color-success:        #16A34A;
+    --color-warning:        #D97706;
+    --color-danger:         #DC2626;
+
+    --shadow-sheet: 0 24px 48px -16px rgba(15, 23, 42, 0.18);
+    --shadow-toast: 0 8px 24px -8px rgba(15, 23, 42, 0.14);
 }

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { LifeBuoy, RotateCcw, Copy, Check, User } from 'lucide-vue-next';
+import { Copy, Check } from 'lucide-vue-next';
 
 import { store, fetchProfile, updateProfile, toast } from '../store.js';
 import { t, setLocale } from '../i18n.js';
@@ -9,22 +9,20 @@ import { useClipboard } from '../composables/useClipboard.js';
 
 import TrafficDonut from '../components/TrafficDonut.vue';
 import Skeleton from '../components/Skeleton.vue';
-import FlagIcon from '../components/FlagIcon.vue';
 import SubscriptionStatusCard from '../components/billing/SubscriptionStatusCard.vue';
 import BillingHistory from '../components/billing/BillingHistory.vue';
 import PaywallSheet from '../components/billing/PaywallSheet.vue';
 import Sheet from '../components/ui/Sheet.vue';
 
 import {
-    Card, SectionLabel, ListGroup, ListRow, IconButton,
-    SegmentedControl, PageHeader,
+    Card, ListGroup, ListRow, IconButton, SegmentedControl,
 } from '../components/ui/index.js';
 
 const loading = ref(false);
 const { copy, copied } = useClipboard();
 
 const memberSince = computed(() => {
-    const raw = store.profile?.user?.memberSince;
+    const raw = store.profile?.user?.memberSince || store.user?.memberSince;
     if (!raw) return '';
     return new Date(raw).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 });
@@ -94,48 +92,44 @@ onMounted(load);
 </script>
 
 <template>
-    <div class="px-4 space-y-6">
-        <!-- Identity -->
-        <PageHeader :title="store.user?.displayName || '—'">
-            <template #leading>
-                <div class="identity-avatar">
-                    <img
-                        v-if="store.user?.photoUrl"
-                        :src="store.user.photoUrl"
-                        :alt="store.user.displayName"
-                        class="identity-avatar__img"
-                        referrerpolicy="no-referrer"
-                    >
-                    <User v-else :size="22" :stroke-width="1.75" />
-                </div>
-            </template>
-            <template v-if="memberSince" #subtitle>
+    <div class="profile">
+        <header class="profile__identity">
+            <p class="profile__name">{{ store.user?.displayName || '—' }}</p>
+            <p v-if="memberSince" class="profile__since">
                 {{ t('profile.memberSince') }} · {{ memberSince }}
-            </template>
-        </PageHeader>
+            </p>
+        </header>
 
-        <!-- Subscription -->
-        <section>
-            <SectionLabel>{{ t('billing.title') }}</SectionLabel>
+        <section class="profile__section">
+            <div class="profile__label">{{ t('billing.title') }}</div>
             <SubscriptionStatusCard @upgrade="openPaywall" @history="openHistory" />
         </section>
 
-        <!-- Traffic usage -->
-        <section>
-            <SectionLabel>{{ t('profile.trafficTotal') }}</SectionLabel>
-            <Card>
+        <section class="profile__section">
+            <div class="profile__label">{{ t('profile.trafficTotal') }}</div>
+            <Card padding="lg">
                 <Skeleton v-if="loading && !store.profile" :height="160" />
-                <TrafficDonut
-                    v-else
-                    :up="store.profile?.totalTraffic?.up || 0"
-                    :down="store.profile?.totalTraffic?.down || 0"
-                />
+                <template v-else>
+                    <TrafficDonut
+                        :up="store.profile?.totalTraffic?.up || 0"
+                        :down="store.profile?.totalTraffic?.down || 0"
+                    />
+                    <div class="profile__traffic-rows">
+                        <div class="profile__traffic-row">
+                            <span>{{ t('profile.upload') }}</span>
+                            <span class="profile__mono">{{ formatBytes(store.profile?.totalTraffic?.up || 0) }}</span>
+                        </div>
+                        <div class="profile__traffic-row">
+                            <span>{{ t('profile.download') }}</span>
+                            <span class="profile__mono">{{ formatBytes(store.profile?.totalTraffic?.down || 0) }}</span>
+                        </div>
+                    </div>
+                </template>
             </Card>
         </section>
 
-        <!-- Per-server breakdown -->
-        <section v-if="store.profile?.clients?.length">
-            <SectionLabel>{{ t('profile.perServer') }}</SectionLabel>
+        <section v-if="store.profile?.clients?.length" class="profile__section">
+            <div class="profile__label">{{ t('profile.perServer') }}</div>
             <ListGroup>
                 <ListRow
                     v-for="client in store.profile.clients"
@@ -143,44 +137,35 @@ onMounted(load);
                     :title="client.server.name"
                     :interactive="false"
                 >
-                    <template #leading>
-                        <FlagIcon :code="client.server.countryCode" :size="32" />
-                    </template>
                     <template #trailing>
-                        <span class="tabular-nums traffic-amount">{{ formatBytes(client.traffic.total) }}</span>
+                        <span class="profile__mono">{{ formatBytes(client.traffic.total) }}</span>
                     </template>
                 </ListRow>
             </ListGroup>
         </section>
 
-        <!-- Universal subscription -->
-        <section v-if="aggregatedUrl">
-            <SectionLabel>{{ t('profile.aggregated') }}</SectionLabel>
+        <section v-if="aggregatedUrl" class="profile__section">
+            <div class="profile__label">{{ t('profile.aggregated') }}</div>
             <ListGroup>
-                <ListRow
-                    :title="t('profile.aggregated')"
-                    :subtitle="aggregatedPreview"
-                    :interactive="false"
-                >
+                <ListRow :interactive="false">
+                    <template #title>{{ t('profile.aggregated') }}</template>
+                    <template #subtitle>{{ aggregatedPreview }}</template>
                     <template #trailing>
-                        <div class="sub-actions">
+                        <div class="profile__icon-actions">
                             <IconButton :aria-label="t('common.copy')" variant="ghost" @click="copyUrl">
-                                <Check v-if="copied" :size="18" :stroke-width="1.75" />
-                                <Copy v-else :size="18" :stroke-width="1.75" />
-                            </IconButton>
-                            <IconButton :aria-label="t('profile.rotate')" variant="ghost" @click="rotateToken">
-                                <RotateCcw :size="18" :stroke-width="1.75" />
+                                <Check v-if="copied" :size="18" :stroke-width="1.5" />
+                                <Copy v-else :size="18" :stroke-width="1.5" />
                             </IconButton>
                         </div>
                     </template>
                 </ListRow>
+                <ListRow :title="t('profile.rotate')" chevron @click="rotateToken" />
             </ListGroup>
-            <p class="sub-hint">{{ t('profile.aggregatedHint') }}</p>
+            <p class="profile__hint">{{ t('profile.aggregatedHint') }}</p>
         </section>
 
-        <!-- Language -->
-        <section>
-            <SectionLabel>{{ t('profile.language') }}</SectionLabel>
+        <section class="profile__section">
+            <div class="profile__label">{{ t('profile.language') }}</div>
             <SegmentedControl
                 :model-value="store.user?.languageCode || 'en'"
                 :options="[
@@ -192,60 +177,105 @@ onMounted(load);
             />
         </section>
 
-        <!-- Support -->
-        <section v-if="store.config?.supportUrl">
+        <section v-if="store.config?.supportUrl" class="profile__section">
             <ListGroup>
-                <ListRow :title="t('profile.support')" chevron @click="openSupport">
-                    <template #leading>
-                        <LifeBuoy :size="20" :stroke-width="1.75" />
-                    </template>
-                </ListRow>
+                <ListRow :title="t('profile.support')" chevron @click="openSupport" />
             </ListGroup>
         </section>
 
         <PaywallSheet v-model:open="paywallOpen" />
         <Sheet v-model:open="historyOpen" :aria-label="t('billing.history')">
-            <h2 class="bill-history-head">{{ t('billing.history') }}</h2>
+            <h2 class="profile__history-head font-display">{{ t('billing.history') }}</h2>
             <BillingHistory />
         </Sheet>
     </div>
 </template>
 
 <style scoped>
-.identity-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-pill);
-    overflow: hidden;
-    background: var(--color-surface-raised);
-    color: var(--color-text-subtle);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 0 1px var(--color-separator) inset;
+.profile {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-bottom: 32px;
 }
-.identity-avatar__img { width: 100%; height: 100%; object-fit: cover; }
 
-.traffic-amount {
+.profile__identity {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 0 0;
+}
+.profile__name {
+    margin: 0;
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text-strong);
+}
+.profile__since {
+    margin: 0;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--color-text-subtle);
+}
+
+.profile__section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.profile__label {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-hint);
+    padding: 0 16px;
+}
+
+.profile__traffic-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-separator);
+}
+.profile__traffic-row {
+    display: flex;
+    justify-content: space-between;
     font-size: 13px;
-    color: var(--color-text);
+    line-height: 18px;
+    color: var(--color-text-subtle);
+}
+
+.profile__mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--color-text-strong);
+    font-variant-numeric: tabular-nums;
     font-weight: 500;
 }
 
-.sub-actions { display: inline-flex; gap: 4px; }
+.profile__icon-actions {
+    display: inline-flex;
+    gap: 4px;
+}
 
-.sub-hint {
-    margin: 10px 4px 0;
+.profile__hint {
+    margin: 0;
+    padding: 0 16px;
     font-size: 12px;
     line-height: 16px;
     color: var(--color-text-hint);
 }
 
-.bill-history-head {
-    font-family: var(--font-display);
-    font-size: var(--text-display);
-    line-height: var(--text-display--line-height);
+.profile__history-head {
     margin: 0 0 16px;
-    font-weight: 600;
+    font-size: 28px;
+    line-height: 34px;
+    color: var(--color-text-strong);
 }
 </style>

@@ -52,51 +52,62 @@ function onClick(e) {
     justify-content: center;
     gap: 8px;
     border-radius: var(--radius-md);
-    font-weight: 600;
-    font-feature-settings: 'cv11', 'ss01', 'calt';
+    font-family: var(--font-sans);
+    font-weight: 500;
     transition:
-        transform var(--duration-fast) var(--ease-out),
-        background var(--duration-base) var(--ease-out),
-        color var(--duration-base) var(--ease-out),
-        opacity var(--duration-base) var(--ease-out);
+        background var(--duration-base) var(--ease-standard),
+        color var(--duration-base) var(--ease-standard),
+        opacity var(--duration-base) var(--ease-standard);
     position: relative;
     isolation: isolate;
     white-space: nowrap;
 }
 
 .ui-btn--md { padding: 12px 18px; font-size: 15px; line-height: 20px; min-height: 44px; }
-.ui-btn--sm { padding: 8px 14px;  font-size: 13px; line-height: 18px; min-height: 36px; border-radius: var(--radius-sm); }
+.ui-btn--sm { padding: 8px 14px;  font-size: 13px; line-height: 18px; min-height: 36px; }
 
 .ui-btn--primary {
     background: var(--color-accent);
     color: var(--color-accent-text);
 }
+.ui-btn--primary:hover:not(:disabled) { background: var(--color-accent-hover); }
+.ui-btn--primary:active:not(:disabled) { background: var(--color-accent-pressed); }
+
 .ui-btn--secondary {
     background: var(--color-surface-raised);
-    color: var(--color-text);
-    box-shadow: 0 0 0 1px var(--color-separator) inset;
+    color: var(--color-text-strong);
 }
-.ui-btn--ghost {
-    background: transparent;
-    color: var(--color-text);
-}
-.ui-btn--destructive {
-    background: var(--color-destructive);
-    color: #fff;
+.ui-btn--secondary:active:not(:disabled) {
+    background: color-mix(in srgb, var(--color-text-strong) 8%, var(--color-surface-raised));
 }
 
-.ui-btn:active:not(:disabled) { transform: scale(0.98); }
-.ui-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ui-btn--ghost {
+    background: transparent;
+    color: var(--color-text-strong);
+}
+.ui-btn--ghost:active:not(:disabled) {
+    background: color-mix(in srgb, var(--color-text-strong) 6%, transparent);
+}
+
+.ui-btn--destructive {
+    background: var(--color-surface-raised);
+    color: var(--color-danger);
+}
+.ui-btn--destructive:active:not(:disabled) {
+    background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface-raised));
+}
+
+.ui-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .ui-btn__spinner {
     position: absolute;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     border: 2px solid currentColor;
     border-top-color: transparent;
     opacity: 0.9;
-    animation: ui-btn-spin 0.7s linear infinite;
+    animation: ui-btn-spin 800ms linear infinite;
 }
 
 .ui-btn__body--dim { opacity: 0; }
@@ -107,7 +118,6 @@ function onClick(e) {
 
 @media (prefers-reduced-motion: reduce) {
     .ui-btn { transition: none; }
-    .ui-btn:active:not(:disabled) { transform: none; }
     .ui-btn__spinner { animation-duration: 2s; }
 }
 </style>

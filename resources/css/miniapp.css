@@ -14,7 +14,7 @@ html {
     background: var(--color-bg);
     color: var(--color-text);
     font-family: var(--font-sans);
-    font-feature-settings: 'cv11', 'ss01', 'calt';
+    font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
@@ -29,7 +29,7 @@ body {
 
 #app {
     min-height: var(--tg-viewport-stable-height, 100vh);
-    padding-bottom: calc(var(--safe-bottom) + 16px);
+    padding-bottom: calc(var(--safe-bottom) + 72px); /* tab bar + breathing */
     isolation: isolate;
 }
 
@@ -45,14 +45,38 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .tabular-nums {
     font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum', 'cv11';
+    font-feature-settings: 'tnum';
+}
+
+.font-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+}
+
+/* Locale-aware display: Instrument Serif for Latin; Geist fallback for Cyrillic. */
+:lang(ru) .font-display,
+:lang(uk) .font-display,
+:lang(be) .font-display {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+.text-eyebrow {
+    font-size: var(--text-eyebrow);
+    line-height: var(--text-eyebrow--line-height);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-hint);
 }
 
 /* =============== page transitions (120ms crossfade) =============== */
 
 .page-enter-active,
 .page-leave-active {
-    transition: opacity var(--duration-fast) var(--ease-out);
+    transition: opacity var(--duration-fast) var(--ease-standard);
 }
 .page-enter-from,
 .page-leave-to {
@@ -74,27 +98,19 @@ input, select, textarea { font: inherit; color: inherit; }
 ::-webkit-scrollbar-thumb { background: var(--color-gray-3); border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* =============== skeleton shimmer =============== */
+/* =============== skeleton (opacity pulse, no shimmer) =============== */
 
 .skeleton {
-    background:
-        linear-gradient(
-            90deg,
-            color-mix(in srgb, var(--color-text) 4%, transparent) 25%,
-            color-mix(in srgb, var(--color-text) 8%, transparent) 37%,
-            color-mix(in srgb, var(--color-text) 4%, transparent) 63%
-        )
-        0 0 / 400px 100% no-repeat,
-        var(--color-surface);
-    animation: skel 1.4s ease-in-out infinite;
+    background: var(--color-surface-raised);
     border-radius: var(--radius-sm);
+    animation: skel-pulse 1200ms ease-in-out infinite;
 }
 
-@keyframes skel {
-    0% { background-position: -200px 0; }
-    100% { background-position: 600px 0; }
+@keyframes skel-pulse {
+    0%, 100% { opacity: 0.6; }
+    50%      { opacity: 1.0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .skeleton { animation-duration: 5s; }
+    .skeleton { animation: none; opacity: 0.8; }
 }

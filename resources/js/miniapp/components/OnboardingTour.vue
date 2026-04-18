@@ -10,9 +10,9 @@ const open = ref(false);
 const idx = ref(0);
 
 const steps = computed(() => ([
-    { title: t('onboarding.step1Title'), body: t('onboarding.step1Body'), emoji: '⚡' },
-    { title: t('onboarding.step2Title'), body: t('onboarding.step2Body'), emoji: '🌐' },
-    { title: t('onboarding.step3Title'), body: t('onboarding.step3Body'), emoji: '✨' },
+    { title: t('onboarding.step1Title'), body: t('onboarding.step1Body') },
+    { title: t('onboarding.step2Title'), body: t('onboarding.step2Body') },
+    { title: t('onboarding.step3Title'), body: t('onboarding.step3Body') },
 ]));
 
 const isLast = computed(() => idx.value === steps.value.length - 1);
@@ -50,10 +50,14 @@ onMounted(() => {
 <template>
     <Sheet :open="open" :aria-label="t('onboarding.begin')" @update:open="(v) => !v && dismiss()">
         <div class="onb">
-            <div class="onb__art" aria-hidden="true">
-                <span class="onb__emoji">{{ current.emoji }}</span>
+            <div class="onb__top">
+                <button v-if="!isLast" type="button" class="onb__skip" @click="dismiss">
+                    {{ t('common.skip') }}
+                </button>
+                <span v-else class="onb__skip-spacer" aria-hidden="true"></span>
             </div>
-            <h2 class="onb__title">{{ current.title }}</h2>
+
+            <h2 class="onb__title font-display">{{ current.title }}</h2>
             <p class="onb__body">{{ current.body }}</p>
 
             <div class="onb__dots" aria-hidden="true">
@@ -66,8 +70,7 @@ onMounted(() => {
             </div>
 
             <div class="onb__actions">
-                <Button variant="ghost" size="sm" @click="dismiss">{{ t('common.skip') }}</Button>
-                <Button @click="next">
+                <Button block @click="next">
                     {{ isLast ? t('onboarding.begin') : t('common.next') }}
                 </Button>
             </div>
@@ -76,34 +79,62 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.onb { display: flex; flex-direction: column; gap: 16px; padding: 8px 4px 4px; align-items: center; text-align: center; }
-.onb__art {
-    width: 96px;
-    height: 96px;
-    border-radius: var(--radius-xl);
-    background: var(--gradient-aurora);
+.onb {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: var(--shadow-hero);
+    flex-direction: column;
+    gap: 20px;
+    padding: 8px 4px 0;
 }
-.onb__emoji { font-size: 44px; line-height: 1; }
+
+.onb__top {
+    display: flex;
+    justify-content: flex-end;
+    min-height: 24px;
+}
+.onb__skip {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+    color: var(--color-text-subtle);
+    padding: 4px 8px;
+}
+.onb__skip:active { color: var(--color-text-strong); }
+.onb__skip-spacer { height: 24px; }
+
 .onb__title {
-    font-family: var(--font-display);
-    font-size: var(--text-display);
-    line-height: var(--text-display--line-height);
     margin: 0;
-    font-weight: 600;
+    font-size: 28px;
+    line-height: 34px;
+    color: var(--color-text-strong);
+    padding: 0 4px;
 }
-.onb__body { color: var(--color-text-subtle); font-size: var(--text-body); line-height: var(--text-body--line-height); margin: 0; max-width: 32ch; }
-.onb__dots { display: flex; gap: 6px; margin: 4px 0; }
+
+.onb__body {
+    margin: 0;
+    padding: 0 4px;
+    color: var(--color-text-subtle);
+    font-size: 15px;
+    line-height: 22px;
+    max-width: 34ch;
+}
+
+.onb__dots {
+    display: flex;
+    gap: 6px;
+    padding: 0 4px;
+}
 .onb__dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--color-gray-4);
-    transition: background var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-spring);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color-separator);
+    transition: background var(--duration-base) var(--ease-standard);
 }
-.onb__dot--active { background: var(--color-accent); transform: scale(1.4); }
-.onb__actions { display: flex; gap: 12px; align-items: center; justify-content: space-between; width: 100%; padding-top: 8px; }
+.onb__dot--active { background: var(--color-accent); }
+
+.onb__actions {
+    padding-top: 4px;
+}
 
 @media (prefers-reduced-motion: reduce) {
     .onb__dot { transition: none; }

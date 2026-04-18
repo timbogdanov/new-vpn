@@ -21,10 +21,19 @@ class SetTelegramWebhook extends Command
 
         $url = $this->option('url') ?? config('app.url') . '/telegram/webhook';
 
-        $response = Http::post("https://api.telegram.org/bot{$token}/setWebhook", [
+        $payload = [
             'url' => $url,
-            'allowed_updates' => ['message', 'callback_query'],
-        ]);
+            // pre_checkout_query is required for Telegram Stars; Telegram does
+            // NOT include it in defaults so it must be opted into explicitly.
+            'allowed_updates' => ['message', 'callback_query', 'pre_checkout_query'],
+        ];
+
+        $secret = (string) config('telegram.webhook_secret_token', '');
+        if ($secret !== '') {
+            $payload['secret_token'] = $secret;
+        }
+
+        $response = Http::post("https://api.telegram.org/bot{$token}/setWebhook", $payload);
 
         if ($response->successful() && $response->json('ok')) {
             $this->info("Webhook set successfully: {$url}");

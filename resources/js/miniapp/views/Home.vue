@@ -3,41 +3,39 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { store, fetchProfile } from '../store.js';
-import { t, i18nState } from '../i18n.js';
+import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
-import { hoursUntilExpiry, isTrialing, isExpired } from '../billing.js';
+import { hoursUntilExpiry, daysUntilExpiry, isTrialing, isExpired, activeSubscription } from '../billing.js';
 
-import BentoGrid from '../components/bento/BentoGrid.vue';
-import BentoConnectTile from '../components/bento/BentoConnectTile.vue';
-import BentoSubscriptionTile from '../components/bento/BentoSubscriptionTile.vue';
-import BentoStatsTile from '../components/bento/BentoStatsTile.vue';
-import BentoServersTile from '../components/bento/BentoServersTile.vue';
-import BentoToolsTile from '../components/bento/BentoToolsTile.vue';
+import ConnectHero from '../components/ConnectHero.vue';
 import OnboardingTour from '../components/OnboardingTour.vue';
 import UpgradeBanner from '../components/billing/UpgradeBanner.vue';
 import PaywallSheet from '../components/billing/PaywallSheet.vue';
 import Skeleton from '../components/Skeleton.vue';
+import { SectionLabel, ListGroup, ListRow } from '../components/ui/index.js';
 
 const router = useRouter();
 
 const recommended = computed(() => store.recommendedServer);
-const intlLocale = computed(() => (i18nState.locale === 'ru' ? 'ru-RU' : 'en-US'));
-
-const memberSince = computed(() => {
-    const raw = store.user?.memberSince;
-    if (!raw) return '';
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleDateString(intlLocale.value, { year: 'numeric', month: 'short', day: 'numeric' });
-});
-
-const greeting = computed(() => store.user?.firstName
-    ? t('home.greeting', { name: store.user.firstName })
-    : t('home.subtitle'));
-
 const paywallOpen = ref(false);
+
 const trialing = computed(() => isTrialing());
 const expired = computed(() => isExpired());
+const sub = computed(() => activeSubscription());
+const days = computed(() => daysUntilExpiry());
+
+const heroStatus = computed(() => {
+    if (expired.value) return 'expired';
+    if (trialing.value && hoursUntilExpiry() <= 48) return 'trial-ending';
+    if (!recommended.value) return 'idle';
+    return 'ready';
+});
+
+const subLabel = computed(() => {
+    if (!sub.value || expired.value) return t('billing.noActive');
+    if (trialing.value) return t('billing.trialActive', { days: days.value });
+    return t('billing.proActive', { days: days.value });
+});
 
 const banner = computed(() => {
     if (expired.value) {
@@ -53,10 +51,23 @@ const banner = computed(() => {
     return null;
 });
 
+const totalUp = computed(() => store.profile?.totalTraffic?.up || 0);
+const totalDown = computed(() => store.profile?.totalTraffic?.down || 0);
+const totalTraffic = computed(() => totalUp.value + totalDown.value);
+const hasTraffic = computed(() => totalTraffic.value > 0);
+
+function formatBytes(bytes) {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0; let n = bytes;
+    while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+    return n.toFixed(n >= 100 || i === 0 ? 0 : 1) + ' ' + units[i];
+}
+
 function openPaywall() { hap.select(); paywallOpen.value = true; }
 
 function goConnect() {
-    if (!recommended.value) return;
+    if (!recommended.value) { openServers(); return; }
     hap.medium();
     router.push(`/servers/${recommended.value.slug}`);
 }
@@ -66,19 +77,13 @@ function openTools() { hap.select(); router.push('/tools'); }
 
 onMounted(() => {
     if (!store.profile) {
-        // Background-load so BentoStatsTile populates without blocking paint.
         fetchProfile().catch(() => {});
     }
 });
 </script>
 
 <template>
-    <div class="home px-4 space-y-5">
-        <header class="home__head">
-            <p class="home__greet">{{ greeting }}</p>
-            <p v-if="memberSince" class="home__sub">{{ t('profile.memberSince') }} · {{ memberSince }}</p>
-        </header>
-
+    <div class="home">
         <UpgradeBanner
             v-if="banner"
             :title="banner.title"
@@ -87,14 +92,48 @@ onMounted(() => {
             @cta="openPaywall"
         />
 
-        <Skeleton v-if="!store.servers.length" :height="260" />
-        <BentoGrid v-else>
-            <BentoConnectTile @connect="goConnect" @paywall="openPaywall" />
-            <BentoSubscriptionTile @paywall="openPaywall" />
-            <BentoStatsTile @click="openProfile" />
-            <BentoServersTile @click="openServers" />
-            <BentoToolsTile @ip="openTools" @speed="openTools" />
-        </BentoGrid>
+        <Skeleton v-if="!store.servers.length" :height="220" />
+        <ConnectHero
+            v-else
+            :server="recommended"
+            :ping="recommended?.pingMs"
+            :status="heroStatus"
+            @connect="goConnect"
+            @choose="openServers"
+            @paywall="openPaywall"
+        />
+
+        <section>
+            <SectionLabel>{{ t('billing.title') }}</SectionLabel>
+            <ListGroup>
+                <ListRow chevron @click="openPaywall">
+                    <template #title>{{ subLabel }}</template>
+                    <template v-if="sub && !expired" #subtitle>
+                        {{ t(trialing ? 'billing.plans.trial_7d.name' : 'billing.plans.pro_monthly.name') }}
+                    </template>
+                </ListRow>
+            </ListGroup>
+        </section>
+
+        <section>
+            <SectionLabel>{{ t('profile.trafficTotal') }}</SectionLabel>
+            <ListGroup>
+                <ListRow chevron @click="openProfile">
+                    <template #title>{{ hasTraffic ? formatBytes(totalTraffic) : t('server.yourTrafficEmpty') }}</template>
+                    <template #subtitle>
+                        {{ t('profile.upload') }} {{ formatBytes(totalUp) }} · {{ t('profile.download') }} {{ formatBytes(totalDown) }}
+                    </template>
+                </ListRow>
+            </ListGroup>
+        </section>
+
+        <section>
+            <SectionLabel>{{ t('home.quickTools') }}</SectionLabel>
+            <ListGroup>
+                <ListRow :title="t('home.toolsIp')" chevron @click="openTools" />
+                <ListRow :title="t('home.toolsSpeed')" chevron @click="openTools" />
+            </ListGroup>
+        </section>
 
         <OnboardingTour />
         <PaywallSheet v-model:open="paywallOpen" />
@@ -102,14 +141,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.home__head { padding: 4px 4px 0; }
-.home__greet {
-    font-family: var(--font-display);
-    font-size: var(--text-display);
-    line-height: var(--text-display--line-height);
-    margin: 0;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+.home {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-bottom: 32px;
 }
-.home__sub { color: var(--color-text-hint); font-size: var(--text-label); margin: 4px 0 0; }
 </style>

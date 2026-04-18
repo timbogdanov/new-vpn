@@ -24,8 +24,7 @@ const { dataUrl } = useQr(toRef(props, 'value'), { dark: '#F5F6F7', light: '#000
     justify-content: center;
     padding: 16px;
     background: var(--color-surface-raised);
-    border-radius: var(--radius-md);
-    box-shadow: 0 0 0 1px var(--color-separator) inset;
+    border-radius: var(--radius-lg);
 }
 .qr__img { display: block; }
 .qr__skel { border-radius: var(--radius-sm); }

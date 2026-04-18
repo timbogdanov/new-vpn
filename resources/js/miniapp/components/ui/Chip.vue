@@ -3,7 +3,7 @@ defineProps({
     tone: {
         type: String,
         default: 'neutral',
-        validator: (v) => ['neutral', 'success', 'warning', 'accent'].includes(v),
+        validator: (v) => ['neutral', 'success', 'warning', 'danger', 'accent'].includes(v),
     },
     dot: { type: Boolean, default: false },
 });
@@ -21,12 +21,13 @@ defineProps({
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 10px;
-    border-radius: var(--radius-pill);
-    font-size: 12px;
-    line-height: 16px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     white-space: nowrap;
 }
 
@@ -39,20 +40,23 @@ defineProps({
 }
 
 .ui-chip--neutral {
-    background: var(--color-surface-raised);
+    background: color-mix(in srgb, var(--color-text-subtle) 10%, transparent);
     color: var(--color-text-subtle);
-    box-shadow: 0 0 0 1px var(--color-separator) inset;
 }
 .ui-chip--accent {
-    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    background: var(--color-accent-tint);
     color: var(--color-accent);
 }
 .ui-chip--success {
-    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    background: color-mix(in srgb, var(--color-success) 12%, transparent);
     color: var(--color-success);
 }
 .ui-chip--warning {
-    background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
     color: var(--color-warning);
+}
+.ui-chip--danger {
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    color: var(--color-danger);
 }
 </style>

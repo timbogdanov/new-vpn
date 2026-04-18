@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
-import { Home as HomeIcon, Settings2 } from 'lucide-vue-next';
 
 import { store } from '../store.js';
 import { t } from '../i18n.js';
@@ -9,7 +8,6 @@ import { hap } from '../telegram.js';
 
 import Toast from './Toast.vue';
 import Spinner from './Spinner.vue';
-import { IconButton } from './ui/index.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -27,10 +25,6 @@ const title = computed(() => {
 
 const greeting = computed(() => t('home.greeting', { name: store.user?.firstName || '' }).replace(/,\s*$/, ''));
 
-function goHome() {
-    hap.select();
-    router.push('/');
-}
 function goProfile() {
     hap.select();
     router.push('/profile');
@@ -42,25 +36,22 @@ function dismissError() {
 
 <template>
     <div class="shell">
-        <!-- Home header: greeting + settings -->
+        <!-- Home header: greeting + text-only "Account" shortcut.
+             No decorative icons. Serif display for EN; sans for ru (handled by .font-display). -->
         <header v-if="route.name === 'home'" class="shell-header shell-header--home pt-safe">
             <div class="shell-header__body">
                 <p class="shell-header__eyebrow">{{ t('home.subtitle') }}</p>
-                <h1 class="shell-header__title">{{ greeting }}</h1>
+                <h1 class="shell-header__title font-display">{{ greeting }}</h1>
             </div>
-            <IconButton :aria-label="t('profile.title')" variant="filled" @click="goProfile">
-                <Settings2 :size="18" :stroke-width="1.75" />
-            </IconButton>
+            <button type="button" class="shell-header__link" @click="goProfile">
+                {{ t('home.account') }}
+            </button>
         </header>
 
-        <!-- Sub-page header: minimal title + home shortcut.
-             Telegram's BackButton handles navigation; this is just visual context. -->
+        <!-- Sub-page header: left-aligned page title.
+             Telegram's BackButton handles navigation; no decorative icons. -->
         <header v-else class="shell-header shell-header--sub pt-safe">
-            <IconButton :aria-label="t('common.back')" variant="ghost" @click="goHome">
-                <HomeIcon :size="18" :stroke-width="1.75" />
-            </IconButton>
-            <div class="shell-header__title shell-header__title--center">{{ title }}</div>
-            <span class="shell-header__spacer" aria-hidden="true"></span>
+            <h1 class="shell-header__subtitle">{{ title }}</h1>
         </header>
 
         <main class="shell-main pb-safe">
@@ -97,79 +88,94 @@ function dismissError() {
     padding-left: 16px;
     padding-right: 16px;
     padding-bottom: 12px;
-    background: linear-gradient(to bottom, var(--color-bg) 70%, transparent);
+    background: var(--color-bg);
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 12px;
 }
 
 .shell-header--home {
-    padding-top: calc(var(--safe-top) + 12px);
-    padding-bottom: 16px;
+    padding-top: calc(var(--safe-top) + 16px);
+    padding-bottom: 20px;
 }
 
 .shell-header--sub {
-    padding-top: calc(var(--safe-top) + 8px);
-    justify-content: space-between;
+    padding-top: calc(var(--safe-top) + 12px);
+    padding-bottom: 16px;
 }
 
 .shell-header__body {
     flex: 1 1 auto;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 .shell-header__eyebrow {
     margin: 0;
     font-size: 11px;
     line-height: 14px;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-text-hint);
     font-weight: 600;
 }
 .shell-header__title {
-    margin: 2px 0 0;
-    font-family: var(--font-display);
-    font-size: 22px;
-    line-height: 26px;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-    color: var(--color-text);
+    margin: 4px 0 0;
+    font-size: 28px;
+    line-height: 34px;
+    color: var(--color-text-strong);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.shell-header__title--center {
-    text-align: center;
+.shell-header__subtitle {
+    margin: 0;
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text-strong);
     flex: 1 1 auto;
-    font-family: var(--font-sans);
-    font-size: 15px;
-    line-height: 20px;
-    letter-spacing: -0.005em;
 }
-.shell-header__spacer { width: 36px; height: 36px; }
+.shell-header__link {
+    flex-shrink: 0;
+    align-self: flex-end;
+    padding: 6px 2px;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+    color: var(--color-text-subtle);
+    transition: color var(--duration-fast) var(--ease-standard);
+}
+.shell-header__link:active {
+    color: var(--color-text-strong);
+}
 
 .shell-main {
     flex: 1 1 auto;
     position: relative;
+    padding: 0 16px;
 }
 
 .shell-error {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 4px 16px 12px;
-    padding: 10px 14px;
+    margin: 0 0 12px;
+    padding: 12px 14px;
     border-radius: var(--radius-md);
-    border: 1px solid color-mix(in srgb, var(--color-destructive) 40%, var(--color-separator));
+    background: var(--color-surface-raised);
+    border-left: 3px solid var(--color-danger);
     font-size: 13px;
     line-height: 18px;
-    color: var(--color-text);
+    color: var(--color-text-strong);
 }
 .shell-error__dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--color-destructive);
+    background: var(--color-danger);
     flex-shrink: 0;
 }
 .shell-error__msg { flex: 1 1 auto; }

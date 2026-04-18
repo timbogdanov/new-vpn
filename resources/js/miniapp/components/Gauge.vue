@@ -6,7 +6,7 @@ const props = defineProps({
     max: { type: Number, default: 200 },
     label: { type: String, default: '' },
     unit: { type: String, default: '' },
-    size: { type: Number, default: 104 },
+    size: { type: Number, default: 120 },
 });
 
 const pct = computed(() => Math.min(1, Math.max(0, props.value / props.max)));
@@ -43,13 +43,13 @@ const formatted = computed(() => {
 </script>
 
 <template>
-    <div class="gauge">
-        <svg :width="size" :height="size" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="50" :r="radius" stroke="var(--color-gray-4)" stroke-width="2" fill="none" />
+    <div class="gauge" :style="{ width: size + 'px' }">
+        <svg :width="size" :height="size" viewBox="0 0 100 100" aria-hidden="true" class="gauge__svg">
+            <circle cx="50" cy="50" :r="radius" stroke="var(--color-separator)" stroke-width="6" fill="none" />
             <circle
                 cx="50" cy="50" :r="radius"
-                stroke="var(--color-accent)"
-                stroke-width="3"
+                stroke="var(--color-text-strong)"
+                stroke-width="6"
                 fill="none"
                 stroke-linecap="round"
                 :stroke-dasharray="`${arc} ${circumference}`"
@@ -57,7 +57,7 @@ const formatted = computed(() => {
                 class="gauge__arc"
             />
         </svg>
-        <div class="gauge__center">
+        <div class="gauge__center" :style="{ height: size + 'px' }">
             <div class="gauge__value tabular-nums">{{ formatted }}</div>
             <div v-if="unit" class="gauge__unit">{{ unit }}</div>
         </div>
@@ -72,13 +72,13 @@ const formatted = computed(() => {
     flex-direction: column;
     align-items: center;
 }
-.gauge__arc { transition: stroke-dasharray var(--duration-slow) var(--ease-spring); }
+.gauge__svg { display: block; }
+.gauge__arc { transition: stroke-dasharray var(--duration-slow) var(--ease-standard); }
 .gauge__center {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: var(--_size, 104px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -86,28 +86,29 @@ const formatted = computed(() => {
     gap: 2px;
     pointer-events: none;
 }
-.gauge { --_size: 104px; }
 .gauge__value {
-    font-size: 17px;
-    line-height: 20px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: 24px;
+    line-height: 28px;
+    font-weight: 500;
+    color: var(--color-text-strong);
 }
 .gauge__unit {
-    font-size: 10px;
-    line-height: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-text-hint);
-}
-.gauge__label {
-    margin-top: 6px;
     font-size: 11px;
     line-height: 14px;
-    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-text-hint);
+    font-weight: 600;
+}
+.gauge__label {
+    margin-top: 8px;
+    font-size: 11px;
+    line-height: 14px;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-text-hint);
+    font-weight: 600;
 }
 
 @media (prefers-reduced-motion: reduce) {

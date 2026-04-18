@@ -7,9 +7,6 @@ defineProps({
 
 <template>
     <header class="ui-page-header">
-        <div v-if="$slots.leading" class="ui-page-header__leading">
-            <slot name="leading" />
-        </div>
         <div class="ui-page-header__body">
             <h1 v-if="title || $slots.title" class="ui-page-header__title">
                 <slot name="title">{{ title }}</slot>
@@ -27,12 +24,11 @@ defineProps({
 <style scoped>
 .ui-page-header {
     display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 8px 4px 16px;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 8px 0 16px;
 }
 
-.ui-page-header__leading,
 .ui-page-header__trailing {
     flex-shrink: 0;
     display: inline-flex;
@@ -49,23 +45,18 @@ defineProps({
 
 .ui-page-header__title {
     margin: 0;
-    font-family: var(--font-display);
-    font-size: 28px;
-    line-height: 32px;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text-strong);
 }
 
 .ui-page-header__subtitle {
     margin: 0;
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 13px;
+    line-height: 18px;
     color: var(--color-text-subtle);
-    font-variant-numeric: tabular-nums;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
 }
 </style>

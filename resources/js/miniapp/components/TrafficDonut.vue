@@ -4,7 +4,7 @@ import { computed, ref, watch, onMounted } from 'vue';
 const props = defineProps({
     up: { type: Number, default: 0 },
     down: { type: Number, default: 0 },
-    size: { type: Number, default: 120 },
+    size: { type: Number, default: 128 },
 });
 
 const total = computed(() => (props.up || 0) + (props.down || 0));
@@ -44,46 +44,35 @@ watch(() => total.value, (v) => animateTo(v));
 </script>
 
 <template>
-    <div class="donut">
-        <svg :width="size" :height="size" viewBox="0 0 100 100" class="donut__svg">
-            <defs>
-                <linearGradient id="donut-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="var(--color-accent)" />
-                    <stop offset="100%" stop-color="var(--color-accent-hot)" />
-                </linearGradient>
-            </defs>
-            <circle cx="50" cy="50" r="42" stroke="var(--color-gray-4)" stroke-width="2" fill="none" />
-            <circle
-                cx="50" cy="50" r="42"
-                stroke="url(#donut-grad)"
-                stroke-width="3"
-                fill="none"
-                stroke-linecap="round"
-                :stroke-dasharray="`${downStroke} ${circumference}`"
-                transform="rotate(-90 50 50)"
-                class="donut__arc"
-            />
-        </svg>
-        <div class="donut__center">
-            <div class="donut__value tabular-nums">{{ format(displayTotal) }}</div>
-            <div class="donut__label">total</div>
-        </div>
-    </div>
-    <div class="donut-legend">
-        <div class="donut-legend__row">
-            <span class="donut-legend__dot donut-legend__dot--down" aria-hidden="true"></span>
-            <span class="donut-legend__label">Download</span>
-            <span class="donut-legend__value tabular-nums">{{ format(down) }}</span>
-        </div>
-        <div class="donut-legend__row">
-            <span class="donut-legend__dot donut-legend__dot--up" aria-hidden="true"></span>
-            <span class="donut-legend__label">Upload</span>
-            <span class="donut-legend__value tabular-nums">{{ format(up) }}</span>
+    <div class="donut-wrap">
+        <div class="donut" :style="{ width: size + 'px', height: size + 'px' }">
+            <svg :width="size" :height="size" viewBox="0 0 100 100" class="donut__svg">
+                <circle cx="50" cy="50" r="42" stroke="var(--color-separator)" stroke-width="8" fill="none" />
+                <circle
+                    cx="50" cy="50" r="42"
+                    stroke="var(--color-accent)"
+                    stroke-width="8"
+                    fill="none"
+                    stroke-linecap="round"
+                    :stroke-dasharray="`${downStroke} ${circumference}`"
+                    transform="rotate(-90 50 50)"
+                    class="donut__arc"
+                />
+            </svg>
+            <div class="donut__center">
+                <div class="donut__value tabular-nums">{{ format(displayTotal) }}</div>
+                <div class="donut__label">total</div>
+            </div>
         </div>
     </div>
 </template>
 
 <style scoped>
+.donut-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0;
+}
 .donut {
     position: relative;
     display: inline-flex;
@@ -92,7 +81,7 @@ watch(() => total.value, (v) => animateTo(v));
 }
 .donut__svg { display: block; }
 .donut__arc {
-    transition: stroke-dasharray var(--duration-slow) var(--ease-spring);
+    transition: stroke-dasharray var(--duration-slow) var(--ease-standard);
 }
 .donut__center {
     position: absolute;
@@ -104,44 +93,20 @@ watch(() => total.value, (v) => animateTo(v));
     gap: 2px;
 }
 .donut__value {
-    font-size: 18px;
+    font-family: var(--font-mono);
+    font-size: 17px;
     line-height: 22px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--color-text);
+    font-weight: 500;
+    color: var(--color-text-strong);
 }
 .donut__label {
-    font-size: 10px;
-    line-height: 12px;
+    font-size: 11px;
+    line-height: 14px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: var(--color-text-hint);
+    font-weight: 600;
 }
-
-.donut-legend {
-    margin-top: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.donut-legend__row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    line-height: 18px;
-    color: var(--color-text-subtle);
-}
-.donut-legend__dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-.donut-legend__dot--down { background: var(--color-accent); }
-.donut-legend__dot--up   { background: var(--color-gray-4); }
-.donut-legend__label { flex: 1 1 auto; color: var(--color-text-hint); }
-.donut-legend__value { color: var(--color-text); font-weight: 500; }
 
 @media (prefers-reduced-motion: reduce) {
     .donut__arc { transition: none; }

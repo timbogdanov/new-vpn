@@ -6,10 +6,11 @@ import { t } from '../../i18n.js';
 import { store } from '../../store.js';
 import { buyPlan } from '../../billing.js';
 
-const props = defineProps({
+const emit = defineEmits(['update:open']);
+
+defineProps({
     open: { type: Boolean, default: false },
 });
-const emit = defineEmits(['update:open']);
 
 const busyKey = ref(null);
 
@@ -33,7 +34,7 @@ async function onBuy(plan) {
 <template>
     <Sheet :open="open" :aria-label="t('billing.upgrade')" @update:open="emit('update:open', $event)">
         <header class="paywall__head">
-            <h2>{{ t('billing.upgrade') }}</h2>
+            <h2 class="paywall__title font-display">{{ t('billing.upgrade') }}</h2>
         </header>
         <div class="paywall__plans">
             <PlanCard
@@ -48,13 +49,20 @@ async function onBuy(plan) {
 </template>
 
 <style scoped>
-.paywall__head { padding: 0 4px 16px; }
-.paywall__head h2 {
-    font-family: var(--font-display);
-    font-size: var(--text-display);
-    line-height: var(--text-display--line-height);
-    margin: 0;
-    font-weight: 600;
+.paywall__head {
+    padding: 0 4px 16px;
+    max-width: calc(100% - 44px);
 }
-.paywall__plans { display: flex; flex-direction: column; gap: 12px; padding-bottom: 12px; }
+.paywall__title {
+    margin: 0;
+    font-size: 28px;
+    line-height: 34px;
+    color: var(--color-text-strong);
+}
+.paywall__plans {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 12px;
+}
 </style>

@@ -5,17 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0B0C10" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#0B0D12" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 
     <title>{{ config('app.name') }}</title>
 
-    {{-- Inter (UI) + Playfair Display (editorial display). Both ship Cyrillic. --}}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    {{-- Geist (UI, Latin + Cyrillic) + Geist Mono (numeric) + Instrument Serif (display, Latin only).
+         Served via Bunny Fonts for WebView reliability and GDPR. --}}
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
     <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap"
+        href="https://fonts.bunny.net/css?family=geist:400,500,600|geist-mono:400,500|instrument-serif:400,400i&display=swap"
     >
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>

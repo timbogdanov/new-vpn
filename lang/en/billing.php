@@ -2,6 +2,10 @@
 
 return [
     'plans' => [
+        'legacy_lifetime' => [
+            'name' => 'Lifetime · Legacy',
+            'description' => 'Lifetime access — granted to early users.',
+        ],
         'trial_7d' => [
             'name' => '7-day trial',
             'description' => 'Test every server, free for a week. 5 GB included.',

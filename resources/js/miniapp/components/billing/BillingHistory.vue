@@ -45,22 +45,54 @@ function fmtDate(iso) {
 </template>
 
 <style scoped>
-.bill-history__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.bill-history__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
 .bill-history__row {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 16px;
-    background: var(--color-surface);
+    padding: 14px 16px;
 }
-.bill-history__row:first-child { border-top-left-radius: var(--radius-md); border-top-right-radius: var(--radius-md); }
-.bill-history__row:last-child { border-bottom-left-radius: var(--radius-md); border-bottom-right-radius: var(--radius-md); }
+.bill-history__row + .bill-history__row {
+    border-top: 1px solid var(--color-separator);
+}
 .bill-history__main { flex: 1; min-width: 0; }
-.bill-history__plan { font-size: var(--text-body); font-weight: 600; margin: 0; }
-.bill-history__date { font-size: var(--text-caption); color: var(--color-text-hint); margin: 2px 0 0; }
-.bill-history__right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.bill-history__status { font-size: var(--text-caption); text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-hint); }
+.bill-history__plan {
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 500;
+    color: var(--color-text-strong);
+    margin: 0;
+}
+.bill-history__date {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--color-text-hint);
+    margin: 2px 0 0;
+}
+.bill-history__right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+.bill-history__status {
+    font-size: 11px;
+    line-height: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-hint);
+    font-weight: 600;
+}
 .bill-history__status--paid { color: var(--color-success); }
 .bill-history__status--refunded { color: var(--color-warning); }
-.bill-history__status--failed { color: var(--color-destructive); }
+.bill-history__status--failed { color: var(--color-danger); }
 </style>

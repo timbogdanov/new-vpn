@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { Copy, Check, QrCode as QrCodeIcon, HelpCircle, Clock, Download } from 'lucide-vue-next';
+import { Copy, Check } from 'lucide-vue-next';
 
 import { store, connect as provisionConnect, fetchProfile, toast } from '../store.js';
 import { t } from '../i18n.js';
@@ -9,13 +9,11 @@ import { detectDevice, hap, openExternal, showPopup } from '../telegram.js';
 import { useClipboard } from '../composables/useClipboard.js';
 
 import ConnectButton from '../components/ConnectButton.vue';
-import FlagIcon from '../components/FlagIcon.vue';
+import ServerStatusHero from '../components/ServerStatusHero.vue';
 import QrCode from '../components/QrCode.vue';
-import ServerFacts from '../components/ServerFacts.vue';
 
 import {
-    PageHeader, Card, ListGroup, ListRow, IconButton, Button,
-    Sheet, EmptyState, Chip,
+    ListGroup, ListRow, IconButton, Button, Sheet, EmptyState,
 } from '../components/ui/index.js';
 import UpgradeBanner from '../components/billing/UpgradeBanner.vue';
 import PaywallSheet from '../components/billing/PaywallSheet.vue';
@@ -36,8 +34,6 @@ const device = detectDevice();
 onMounted(async () => {
     if (!server.value) return;
     if (server.value.isComingSoon) return;
-    // Kick off provisioning immediately; load profile in the background so the
-    // "Your traffic" tile can populate without blocking the connect flow.
     ensureProvisioned();
     if (!store.profile) {
         fetchProfile().catch(() => {});
@@ -57,10 +53,6 @@ async function ensureProvisioned() {
 
 const rawDeepLink = computed(() => payload.value?.deepLinks?.[device] || payload.value?.deepLinks?.ios || '');
 
-// Telegram's WebApp.openLink() only handles https URLs — it silently drops
-// custom schemes like v2raytun://. The backend exposes a redirect wrapper
-// (https://…/vpn-link?url=) that 302s into the custom scheme; wrapping the
-// deep link through it lets the VPN app actually open from Telegram.
 const openUrl = computed(() => {
     const deep = rawDeepLink.value;
     const base = payload.value?.redirectUrlBase;
@@ -77,21 +69,27 @@ const subscriptionPreview = computed(() => {
 });
 const appStoreLink = computed(() => payload.value?.appStoreLinks?.[device] || payload.value?.appStoreLinks?.ios);
 
-const ping = computed(() => server.value?.pingMs ?? null);
-const loadPct = computed(() => server.value?.loadPercent ?? null);
-const loadTone = computed(() => {
-    const p = loadPct.value;
-    if (p === null) return 'neutral';
-    if (p >= 75) return 'warning';
-    return 'success';
+const heroStatus = computed(() => {
+    if (isExpired()) return 'expired';
+    if (isTrialing() && hoursUntilExpiry() <= 48) return 'trial-ending';
+    if (loading.value && !payload.value) return 'provisioning';
+    if (payload.value) return 'connected';
+    return 'idle';
 });
-const loadLabel = computed(() => {
-    const p = loadPct.value;
-    if (p === null) return null;
-    if (p >= 75) return t('server.loadBusy');
-    if (p >= 40) return t('server.loadModerate');
-    return t('server.loadLow');
+
+const trafficUsed = computed(() => {
+    const slug = server.value?.slug;
+    if (!slug) return null;
+    return store.profile?.clients?.find((c) => c.server?.slug === slug)?.traffic?.total ?? null;
 });
+
+function formatBytes(bytes) {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0; let n = bytes;
+    while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+    return n.toFixed(n >= 100 || i === 0 ? 0 : 1) + ' ' + units[i];
+}
 
 async function provisionIfNeeded() {
     if (!payload.value) await ensureProvisioned();
@@ -141,11 +139,11 @@ const banner = computed(() => {
 </script>
 
 <template>
-    <div v-if="!server" class="px-4 py-16 text-center" style="color: var(--color-text-hint)">
+    <div v-if="!server" class="detail-loading">
         {{ t('common.loading') }}
     </div>
 
-    <div v-else class="px-4 space-y-6">
+    <div v-else class="detail">
         <UpgradeBanner
             v-if="banner"
             :title="banner.title"
@@ -154,91 +152,86 @@ const banner = computed(() => {
             @cta="openPaywall"
         />
 
-        <!-- Hero -->
-        <PageHeader :title="server.name">
-            <template #leading>
-                <FlagIcon :code="server.countryCode" :size="52" />
-            </template>
-            <template #subtitle>
-                <span>{{ [server.city, server.country].filter(Boolean).join(', ') }}</span>
-                <span v-if="ping != null" class="tabular-nums hero-sep">· {{ Math.round(ping) }} ms</span>
-                <Chip v-if="loadLabel" :tone="loadTone" dot class="hero-chip">{{ loadLabel }}</Chip>
-            </template>
-        </PageHeader>
+        <ServerStatusHero
+            :server="server"
+            :ping="server.pingMs"
+            :status="heroStatus"
+        />
 
-        <!-- Coming soon -->
-        <Card v-if="server.isComingSoon" padding="none">
-            <EmptyState :title="t('server.soon')" :body="t('server.soonBody')">
-                <template #icon>
-                    <Clock :size="22" :stroke-width="1.75" />
-                </template>
-                <template #action>
-                    <Button variant="ghost" size="sm" disabled>{{ t('server.notifyMe') }}</Button>
-                </template>
-            </EmptyState>
-        </Card>
+        <EmptyState
+            v-if="server.isComingSoon"
+            :title="t('server.soon')"
+            :body="t('server.soonBody')"
+        >
+            <template #action>
+                <Button variant="ghost" size="sm" disabled>{{ t('server.notifyMe') }}</Button>
+            </template>
+        </EmptyState>
 
-        <!-- Connect flow -->
-        <div v-else class="space-y-5">
+        <template v-else>
             <ConnectButton
                 :label="t('server.connect')"
                 :url="openUrl"
                 :provision="provisionIfNeeded"
             />
 
-            <!-- At-a-glance facts -->
-            <ServerFacts :server="server" />
-
-            <!-- Subscription + actions -->
-            <section v-if="subscriptionUrl">
+            <section class="detail__section">
+                <div class="detail__label">{{ t('server.details') }}</div>
                 <ListGroup>
-                    <ListRow
-                        :title="t('profile.aggregated')"
-                        :subtitle="subscriptionPreview"
-                        :interactive="false"
-                    >
+                    <ListRow :interactive="false">
+                        <template #title>{{ t('server.protocol') }}</template>
+                        <template #trailing>{{ t('server.protocolValue') }}</template>
+                    </ListRow>
+                    <ListRow :interactive="false">
+                        <template #title>{{ t('server.endpoint') }}</template>
                         <template #trailing>
-                            <div class="sub-actions">
+                            <span class="detail__mono">{{ server.hostPreview || t('server.endpointUnknown') }}</span>
+                        </template>
+                    </ListRow>
+                    <ListRow :interactive="false">
+                        <template #title>{{ t('server.yourTraffic') }}</template>
+                        <template #trailing>
+                            <span class="detail__mono">{{ trafficUsed != null ? formatBytes(trafficUsed) : t('server.yourTrafficEmpty') }}</span>
+                        </template>
+                    </ListRow>
+                </ListGroup>
+            </section>
+
+            <section v-if="subscriptionUrl" class="detail__section">
+                <div class="detail__label">{{ t('profile.aggregated') }}</div>
+                <ListGroup>
+                    <ListRow :interactive="false">
+                        <template #title>{{ t('server.copyLink') }}</template>
+                        <template #subtitle>{{ subscriptionPreview }}</template>
+                        <template #trailing>
+                            <div class="detail__actions">
                                 <IconButton :aria-label="t('common.copy')" variant="ghost" @click="copyUrl">
-                                    <Check v-if="copied" :size="18" :stroke-width="1.75" />
-                                    <Copy v-else :size="18" :stroke-width="1.75" />
-                                </IconButton>
-                                <IconButton :aria-label="t('server.showQr')" variant="ghost" @click="toggleQr">
-                                    <QrCodeIcon :size="18" :stroke-width="1.75" />
+                                    <Check v-if="copied" :size="18" :stroke-width="1.5" />
+                                    <Copy v-else :size="18" :stroke-width="1.5" />
                                 </IconButton>
                             </div>
                         </template>
                     </ListRow>
+                    <ListRow :title="t('server.showQr')" chevron @click="toggleQr" />
+                    <ListRow v-if="appStoreLink" :title="t('server.download')" chevron @click="openStore" />
                 </ListGroup>
             </section>
 
-            <!-- Help + download -->
-            <section>
+            <section class="detail__section">
+                <div class="detail__label">{{ t('server.how') }}</div>
                 <ListGroup>
-                    <ListRow :title="t('server.how')" chevron @click="openHelp">
-                        <template #leading>
-                            <HelpCircle :size="20" :stroke-width="1.75" />
-                        </template>
-                    </ListRow>
-                    <ListRow v-if="appStoreLink" :title="t('server.download')" chevron @click="openStore">
-                        <template #leading>
-                            <Download :size="20" :stroke-width="1.75" />
-                        </template>
-                    </ListRow>
+                    <ListRow :title="t('server.how')" chevron @click="openHelp" />
                 </ListGroup>
             </section>
 
-            <div v-if="error" class="error-card">
-                {{ error }}
-            </div>
-        </div>
+            <div v-if="error" class="detail__error">{{ error }}</div>
+        </template>
 
-        <!-- QR in bottom sheet -->
         <Sheet v-model:open="showQr" :aria-label="t('server.qrAria')">
             <div class="qr-sheet">
                 <QrCode :value="subscriptionUrl" :size="220" />
                 <p class="qr-sheet__caption">{{ t('profile.aggregated') }}</p>
-                <p class="qr-sheet__url tabular-nums">{{ subscriptionUrl }}</p>
+                <p class="qr-sheet__url">{{ subscriptionUrl }}</p>
             </div>
         </Sheet>
 
@@ -247,16 +240,52 @@ const banner = computed(() => {
 </template>
 
 <style scoped>
-.hero-sep { color: var(--color-text-subtle); }
-.hero-chip { margin-left: 2px; }
+.detail {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 32px;
+}
 
-.sub-actions { display: inline-flex; gap: 4px; }
+.detail-loading {
+    padding: 64px 0;
+    text-align: center;
+    color: var(--color-text-hint);
+    font-size: 14px;
+}
 
-.error-card {
-    padding: 14px 16px;
+.detail__section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.detail__label {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-hint);
+    padding: 0 16px;
+}
+
+.detail__mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--color-text-subtle);
+}
+
+.detail__actions {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.detail__error {
+    padding: 12px 14px;
     border-radius: var(--radius-md);
-    border: 1px solid color-mix(in srgb, var(--color-destructive) 40%, transparent);
-    color: var(--color-destructive);
+    background: var(--color-surface-raised);
+    border-left: 3px solid var(--color-danger);
+    color: var(--color-danger);
     font-size: 13px;
     line-height: 18px;
 }
@@ -266,12 +295,13 @@ const banner = computed(() => {
     flex-direction: column;
     align-items: center;
     padding: 8px 4px 4px;
+    gap: 12px;
 }
 .qr-sheet__caption {
-    margin: 16px 0 4px;
+    margin: 0;
     font-size: 13px;
-    font-weight: 600;
-    color: var(--color-text);
+    font-weight: 500;
+    color: var(--color-text-strong);
 }
 .qr-sheet__url {
     margin: 0;

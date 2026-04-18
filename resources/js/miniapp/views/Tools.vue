@@ -1,25 +1,23 @@
 <script setup>
 import { computed, ref } from 'vue';
-import { Shield, ShieldOff, Gauge as GaugeIcon, Globe } from 'lucide-vue-next';
 
 import { runIpCheck, runSpeedTest, toast } from '../store.js';
 import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
 
 import Gauge from '../components/Gauge.vue';
-import FlagIcon from '../components/FlagIcon.vue';
-import { Card, SectionLabel, Button, Chip } from '../components/ui/index.js';
+import { Card, Button, Chip } from '../components/ui/index.js';
 
 const ipLoading = ref(false);
 const ipResult = ref(null);
 const speedLoading = ref(false);
 const speedResult = ref(null);
 
-const protectedChip = computed(() => {
+const ipStatus = computed(() => {
     if (!ipResult.value) return null;
     return ipResult.value.isProtected
         ? { tone: 'success', label: t('tools.ipProtected') }
-        : { tone: 'warning', label: t('tools.ipUnprotected') };
+        : { tone: 'danger', label: t('tools.ipUnprotected') };
 });
 
 async function checkIp() {
@@ -40,74 +38,60 @@ async function speed() {
 </script>
 
 <template>
-    <div class="px-4 space-y-6">
-        <!-- IP / Protection -->
-        <section>
-            <SectionLabel>{{ t('tools.ipTitle') }}</SectionLabel>
-            <Card>
-                <div class="tool-head">
-                    <div class="tool-head__icon" :data-state="ipResult?.isProtected ? 'ok' : 'warn'">
-                        <Shield v-if="ipResult?.isProtected" :size="22" :stroke-width="1.75" />
-                        <ShieldOff v-else :size="22" :stroke-width="1.75" />
-                    </div>
-                    <div class="tool-head__body">
-                        <div class="tool-head__title">
-                            {{ ipResult ? (ipResult.isProtected ? t('tools.ipProtected') : t('tools.ipUnprotected')) : t('tools.ipTitle') }}
-                        </div>
-                        <div class="tool-head__subtitle">
-                            <template v-if="ipResult">
-                                <Chip v-if="protectedChip" :tone="protectedChip.tone" dot>
-                                    {{ protectedChip.label }}
-                                </Chip>
-                            </template>
-                            <template v-else>
-                                {{ t('tools.ipUnprotectedBody') }}
-                            </template>
-                        </div>
-                    </div>
+    <div class="tools">
+        <section class="tools__section">
+            <div class="tools__label">{{ t('tools.ipTitle') }}</div>
+            <Card padding="lg">
+                <div class="tools__head">
+                    <p class="tools__title">
+                        {{ ipResult ? (ipResult.isProtected ? t('tools.ipProtected') : t('tools.ipUnprotected')) : t('tools.ipTitle') }}
+                    </p>
+                    <p class="tools__desc">
+                        {{ ipResult ? (ipResult.isProtected ? t('tools.ipProtectedBody') : t('tools.ipUnprotectedBody')) : t('tools.ipUnprotectedBody') }}
+                    </p>
                 </div>
 
-                <div v-if="ipResult" class="tool-detail">
-                    <div class="tool-detail__row">
-                        <FlagIcon v-if="ipResult.countryCode" :code="ipResult.countryCode" :size="24" />
-                        <Globe v-else :size="20" :stroke-width="1.75" class="tool-detail__globe" />
-                        <span class="tool-detail__location">
-                            <template v-if="ipResult.city">{{ ipResult.city }}, </template>
-                            {{ ipResult.country || '—' }}
-                        </span>
-                    </div>
-                    <div class="tool-detail__mono tabular-nums">
+                <div v-if="ipResult" class="tools__result">
+                    <Chip v-if="ipStatus" :tone="ipStatus.tone" dot>{{ ipStatus.label }}</Chip>
+                    <div class="tools__mono">
                         {{ ipResult.ip }}<span v-if="ipResult.isp"> · {{ ipResult.isp }}</span>
                     </div>
+                    <div v-if="ipResult.country || ipResult.city" class="tools__location">
+                        <template v-if="ipResult.city">{{ ipResult.city }}, </template>
+                        {{ ipResult.country || '—' }}
+                    </div>
                 </div>
 
-                <Button class="tool-run" variant="secondary" block :loading="ipLoading" @click="checkIp">
+                <Button variant="secondary" block :loading="ipLoading" @click="checkIp">
                     {{ ipLoading ? t('tools.ipChecking') : t('tools.ipRun') }}
                 </Button>
             </Card>
         </section>
 
-        <!-- Speed test -->
-        <section>
-            <SectionLabel>{{ t('tools.speedTitle') }}</SectionLabel>
-            <Card>
-                <div class="tool-head">
-                    <div class="tool-head__icon" data-state="accent">
-                        <GaugeIcon :size="22" :stroke-width="1.75" />
+        <section class="tools__section">
+            <div class="tools__label">{{ t('tools.speedTitle') }}</div>
+            <Card padding="lg">
+                <div class="tools__head">
+                    <p class="tools__title">{{ t('tools.speedTitle') }}</p>
+                    <p class="tools__desc">{{ t('tools.speedNote') }}</p>
+                </div>
+
+                <div v-if="speedResult" class="tools__speed">
+                    <div class="tools__speed-item">
+                        <Gauge :value="speedResult.downloadMbps" :max="500" unit="Mbps" :size="96" />
+                        <div class="tools__speed-label">{{ t('tools.speedDownload') }}</div>
                     </div>
-                    <div class="tool-head__body">
-                        <div class="tool-head__title">{{ t('tools.speedTitle') }}</div>
-                        <div class="tool-head__subtitle">{{ t('tools.speedNote') }}</div>
+                    <div class="tools__speed-item">
+                        <Gauge :value="speedResult.uploadMbps" :max="500" unit="Mbps" :size="96" />
+                        <div class="tools__speed-label">{{ t('tools.speedUpload') }}</div>
+                    </div>
+                    <div class="tools__speed-item">
+                        <Gauge :value="speedResult.pingMs" :max="300" unit="ms" :size="96" />
+                        <div class="tools__speed-label">{{ t('tools.speedPing') }}</div>
                     </div>
                 </div>
 
-                <div v-if="speedResult" class="speed-grid">
-                    <Gauge :value="speedResult.downloadMbps" :max="500" :label="t('tools.speedDownload')" unit="Mbps" :size="92" />
-                    <Gauge :value="speedResult.uploadMbps"   :max="500" :label="t('tools.speedUpload')"   unit="Mbps" :size="92" />
-                    <Gauge :value="speedResult.pingMs"       :max="300" :label="t('tools.speedPing')"     unit="ms"   :size="92" />
-                </div>
-
-                <Button class="tool-run" variant="secondary" block :loading="speedLoading" @click="speed">
+                <Button variant="secondary" block :loading="speedLoading" @click="speed">
                     {{ speedLoading ? t('tools.speedRunning') : t('tools.speedRun') }}
                 </Button>
             </Card>
@@ -116,72 +100,90 @@ async function speed() {
 </template>
 
 <style scoped>
-.tool-head {
+.tools {
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    margin-bottom: 16px;
+    flex-direction: column;
+    gap: 24px;
+    padding-bottom: 32px;
 }
-.tool-head__icon {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-sm);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-surface-raised);
-    color: var(--color-text-subtle);
-    flex-shrink: 0;
-}
-.tool-head__icon[data-state="ok"]     { color: var(--color-success); background: color-mix(in srgb, var(--color-success) 12%, transparent); }
-.tool-head__icon[data-state="warn"]   { color: var(--color-warning); background: color-mix(in srgb, var(--color-warning) 12%, transparent); }
-.tool-head__icon[data-state="accent"] { color: var(--color-accent);  background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
 
-.tool-head__body { flex: 1 1 auto; min-width: 0; }
-.tool-head__title {
-    font-size: 15px;
-    line-height: 22px;
+.tools__section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.tools__label {
+    font-size: 11px;
+    line-height: 14px;
     font-weight: 600;
-    color: var(--color-text);
-}
-.tool-head__subtitle {
-    font-size: 13px;
-    line-height: 18px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     color: var(--color-text-hint);
-    margin-top: 2px;
+    padding: 0 16px;
 }
 
-.tool-detail {
+.tools__head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     margin-bottom: 16px;
-    padding: 12px 14px;
-    background: var(--color-surface-raised);
-    border-radius: var(--radius-sm);
+}
+.tools__title {
+    margin: 0;
+    font-size: 17px;
+    line-height: 24px;
+    font-weight: 500;
+    color: var(--color-text-strong);
+}
+.tools__desc {
+    margin: 0;
     font-size: 13px;
     line-height: 18px;
+    color: var(--color-text-subtle);
 }
-.tool-detail__row {
+
+.tools__result {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--color-text);
-    margin-bottom: 4px;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
 }
-.tool-detail__location { font-weight: 500; }
-.tool-detail__globe { color: var(--color-text-subtle); }
-.tool-detail__mono {
+.tools__mono {
     font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--color-text-hint);
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--color-text-strong);
+    font-variant-numeric: tabular-nums;
     word-break: break-all;
 }
+.tools__location {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--color-text-subtle);
+}
 
-.speed-grid {
+.tools__speed {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
     margin-bottom: 16px;
     justify-items: center;
 }
-
-.tool-run { margin-top: 4px; }
+.tools__speed-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+.tools__speed-label {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-hint);
+}
 </style>

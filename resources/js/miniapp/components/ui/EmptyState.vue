@@ -7,9 +7,6 @@ defineProps({
 
 <template>
     <div class="ui-empty">
-        <div v-if="$slots.icon" class="ui-empty__icon">
-            <slot name="icon" />
-        </div>
         <h2 v-if="title || $slots.title" class="ui-empty__title">
             <slot name="title">{{ title }}</slot>
         </h2>
@@ -28,39 +25,27 @@ defineProps({
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 8px;
-    padding: 32px 20px;
-}
-
-.ui-empty__icon {
-    width: 44px;
-    height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-text-hint);
-    background: var(--color-surface-raised);
-    border-radius: var(--radius-sm);
-    margin-bottom: 4px;
+    gap: 6px;
+    padding: 48px 20px;
 }
 
 .ui-empty__title {
     margin: 0;
-    font-size: 16px;
+    font-size: 15px;
     line-height: 22px;
-    font-weight: 600;
-    color: var(--color-text);
+    font-weight: 500;
+    color: var(--color-text-strong);
 }
 
 .ui-empty__body {
     margin: 0;
-    font-size: 14px;
-    line-height: 20px;
-    color: var(--color-text-hint);
-    max-width: 28ch;
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--color-text-subtle);
+    max-width: 32ch;
 }
 
 .ui-empty__action {
-    margin-top: 8px;
+    margin-top: 12px;
 }
 </style>

@@ -18,20 +18,33 @@ const usdLabel = computed(() => {
 
 <template>
     <span class="stars" :class="sizeClass">
-        <span class="stars__glyph" aria-hidden="true">★</span>
         <span class="stars__num tabular-nums">{{ formatted }}</span>
+        <span class="stars__glyph" aria-hidden="true">⭐</span>
         <span v-if="usdLabel" class="stars__usd tabular-nums">{{ usdLabel }}</span>
     </span>
 </template>
 
 <style scoped>
-.stars { display: inline-flex; align-items: baseline; gap: 6px; color: var(--color-text); }
-.stars__glyph { color: var(--color-warning); }
-.stars__num { font-weight: 700; letter-spacing: -0.01em; }
-.stars__usd { color: var(--color-text-hint); font-size: var(--text-caption); margin-left: 2px; }
+.stars {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    color: var(--color-text-strong);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+.stars__num { font-weight: 500; letter-spacing: -0.01em; }
+.stars__glyph { font-family: initial; }
+.stars__usd {
+    color: var(--color-text-hint);
+    font-size: 12px;
+    line-height: 16px;
+    margin-left: 4px;
+    font-weight: 400;
+}
 
-.stars--md .stars__glyph,
-.stars--md .stars__num { font-size: var(--text-body); line-height: var(--text-body--line-height); }
-.stars--lg .stars__glyph,
-.stars--lg .stars__num { font-size: var(--text-display); line-height: var(--text-display--line-height); }
+.stars--md .stars__num,
+.stars--md .stars__glyph { font-size: 15px; line-height: 22px; }
+.stars--lg .stars__num,
+.stars--lg .stars__glyph { font-size: 24px; line-height: 30px; }
 </style>

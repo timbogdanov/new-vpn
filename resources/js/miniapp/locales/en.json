@@ -27,8 +27,9 @@
     },
     "server": {
         "connect": "Connect",
+        "disconnect": "Disconnect",
         "connecting": "Opening VPN app…",
-        "connected": "Config imported",
+        "connected": "Connected",
         "copyLink": "Copy link",
         "copied": "Copied",
         "showQr": "Show QR",
@@ -136,6 +137,10 @@
             "unknown": "Could not start checkout."
         },
         "plans": {
+            "legacy_lifetime": {
+                "name": "Lifetime · Legacy",
+                "description": "Lifetime access — granted to early users."
+            },
             "trial_7d": {
                 "name": "7-day trial",
                 "description": "Test every server for a week. 5 GB included."

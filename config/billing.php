@@ -17,6 +17,17 @@ return [
     */
 
     'plans' => [
+        'legacy_lifetime' => [
+            'tier' => 'pro',
+            'name_key' => 'billing.plans.legacy_lifetime.name',
+            'description_key' => 'billing.plans.legacy_lifetime.description',
+            'duration_days' => 0, // sentinel — never expires
+            'traffic_bytes' => null,
+            'device_limit' => 5,
+            'stars' => 0,
+            'visible_in_paywall' => false,
+        ],
+
         'trial_7d' => [
             'tier' => 'trial',
             'name_key' => 'billing.plans.trial_7d.name',

@@ -97,7 +97,9 @@ class Server extends Model
         $host = $this->subscription_host ?: $this->xui_host ?: $this->host;
         $port = $this->subscription_port ?: config('vpn.subscription_port', 2096);
 
-        return "https://{$host}:{$port}/sub";
+        $portSegment = (int) $port === 443 ? '' : ':' . $port;
+
+        return "https://{$host}{$portSegment}/sub";
     }
 
     public function toPublicDTO(): ServerDTO

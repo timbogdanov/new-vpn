@@ -23,6 +23,7 @@ RUN apk add --no-cache \
     libjpeg-turbo-dev \
     freetype-dev \
     libzip-dev \
+    icu-dev \
     zip \
     unzip \
     git \
@@ -42,6 +43,7 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         gd \
         zip \
         bcmath \
+        intl \
         opcache
 
 # Composer

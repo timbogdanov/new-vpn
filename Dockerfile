@@ -59,7 +59,7 @@ COPY . .
 # Pull Vite-built Mini App assets from the frontend stage.
 COPY --from=frontend /build/public/build ./public/build
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer update --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \

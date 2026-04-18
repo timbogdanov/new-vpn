@@ -131,7 +131,16 @@ class TelegramWebhookController extends Controller
     {
         $message = $update->getMessage();
         $sp = $message->get('successful_payment');
-        if (!is_array($sp)) {
+
+        // telegram-bot-sdk maps `successful_payment` to a SuccessfulPayment
+        // object (not a raw array). Normalize so we can use array access below.
+        if ($sp instanceof \Telegram\Bot\Objects\BaseObject) {
+            $sp = $sp->all();
+        }
+        if (!is_array($sp) || $sp === []) {
+            Log::warning('Stars: successful_payment payload empty', [
+                'chat_id' => $message->getChat()?->getId(),
+            ]);
             return;
         }
 
@@ -139,6 +148,12 @@ class TelegramWebhookController extends Controller
         $chargeId = (string) ($sp['telegram_payment_charge_id'] ?? '');
         $providerChargeId = (string) ($sp['provider_payment_charge_id'] ?? '');
         $totalAmount = (int) ($sp['total_amount'] ?? 0);
+
+        Log::info('Stars: successful_payment received', [
+            'payload' => $payload,
+            'charge_id' => $chargeId,
+            'total_amount' => $totalAmount,
+        ]);
 
         if ($payload === '' || $chargeId === '') {
             return;

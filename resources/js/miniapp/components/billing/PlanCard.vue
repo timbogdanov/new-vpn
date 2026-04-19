@@ -33,11 +33,10 @@ const cycle = computed(() => {
 
 <template>
     <article class="plan" :class="{ 'plan--highlight': plan.highlight }">
+        <p v-if="plan.highlight" class="plan__tag">{{ t('billing.saveBadge') }}</p>
+
         <header class="plan__head">
-            <div class="plan__name-row">
-                <h3 class="plan__name">{{ name }}</h3>
-                <span v-if="plan.highlight" class="plan__badge">{{ t('billing.saveBadge') }}</span>
-            </div>
+            <h3 class="plan__name">{{ name }}</h3>
             <p class="plan__desc">{{ description }}</p>
         </header>
 
@@ -53,7 +52,7 @@ const cycle = computed(() => {
 
         <Button
             block
-            :variant="plan.highlight ? 'primary' : 'secondary'"
+            variant="primary"
             :loading="busy"
             @click="emit('buy', plan)"
         >
@@ -70,60 +69,56 @@ const cycle = computed(() => {
     padding: 20px;
     background: var(--color-surface-raised);
     border-radius: var(--radius-lg);
+    border: 1px solid transparent;
 }
 .plan--highlight {
-    background: var(--color-surface-raised);
-    box-shadow: 0 0 0 1px var(--color-accent) inset;
-    position: relative;
+    border-color: var(--color-accent);
 }
-.plan--highlight::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--color-accent-tint);
-    border-radius: var(--radius-lg);
-    pointer-events: none;
-    z-index: 0;
-}
-.plan > * { position: relative; z-index: 1; }
 
-.plan__head { display: flex; flex-direction: column; gap: 4px; }
-.plan__name-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.plan__name {
-    font-size: 17px;
-    line-height: 24px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--color-text-strong);
+.plan__tag {
     margin: 0;
-}
-.plan__badge {
     font-size: 11px;
     line-height: 14px;
     font-weight: 600;
-    color: var(--color-accent);
-    background: var(--color-accent-tint);
-    padding: 3px 8px;
-    border-radius: var(--radius-sm);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
+    color: var(--color-accent);
+}
+
+.plan__head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.plan__name {
+    margin: 0;
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--color-text-strong);
 }
 .plan__desc {
+    margin: 0;
     color: var(--color-text-subtle);
     font-size: 13px;
     line-height: 18px;
-    margin: 0;
 }
+
 .plan__price {
     display: flex;
     align-items: baseline;
     gap: 8px;
+    border-top: 1px solid var(--color-separator);
+    border-bottom: 1px solid var(--color-separator);
+    padding: 12px 0;
 }
 .plan__cycle {
     color: var(--color-text-hint);
     font-size: 12px;
     line-height: 16px;
 }
+
 .plan__features {
     list-style: none;
     padding: 0;

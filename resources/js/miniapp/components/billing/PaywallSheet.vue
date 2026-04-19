@@ -34,6 +34,7 @@ async function onBuy(plan) {
 <template>
     <Sheet :open="open" :aria-label="t('billing.upgrade')" @update:open="emit('update:open', $event)">
         <header class="paywall__head">
+            <p class="paywall__eyebrow">{{ t('billing.title') }}</p>
             <h2 class="paywall__title font-display">{{ t('billing.upgrade') }}</h2>
         </header>
         <div class="paywall__plans">
@@ -50,8 +51,20 @@ async function onBuy(plan) {
 
 <style scoped>
 .paywall__head {
-    padding: 0 4px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 4px 20px;
     max-width: calc(100% - 44px);
+}
+.paywall__eyebrow {
+    margin: 0;
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-hint);
 }
 .paywall__title {
     margin: 0;

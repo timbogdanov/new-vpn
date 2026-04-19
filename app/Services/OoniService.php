@@ -208,6 +208,7 @@ class OoniService
 
         $out = [];
         $emptyCount = 0;
+        $sampled = false;
         foreach ($responses as $i => $resp) {
             if ($resp instanceof \Throwable) {
                 Log::info('OONI: single-URL fetch failed', [
@@ -224,6 +225,15 @@ class OoniService
                 ]);
                 $out[$i] = null;
                 continue;
+            }
+            if (!$sampled) {
+                Log::info('OONI: sample response', [
+                    'url' => $plan[$i]['url'] ?? null,
+                    'params' => $params,
+                    'status' => $resp->status(),
+                    'body_head' => substr((string) $resp->body(), 0, 400),
+                ]);
+                $sampled = true;
             }
             $payload = $resp->json();
             $counts = $this->extractCounts($payload);
@@ -244,21 +254,51 @@ class OoniService
     }
 
     /**
-     * OONI's /aggregation returns either a single object (when no axis) or a
-     * `result` list. We request without an axis_x, so we get a single summary.
+     * OONI's /aggregation historically returned `{ result: [{counts}] }` for a
+     * no-axis query. Modern versions have been seen returning `{ result: {counts} }`
+     * (object, not list), or a multi-row list if a default axis gets applied.
+     * Be permissive: sum every row that has a measurement_count field.
      */
     private function extractCounts(mixed $payload): ?array
     {
         if (!is_array($payload)) {
             return null;
         }
-        if (isset($payload['result'][0]) && is_array($payload['result'][0])) {
-            return $payload['result'][0];
+
+        $rows = [];
+
+        if (isset($payload['result'])) {
+            $r = $payload['result'];
+            if (is_array($r) && isset($r['measurement_count'])) {
+                $rows[] = $r;
+            } elseif (is_array($r)) {
+                foreach ($r as $row) {
+                    if (is_array($row) && isset($row['measurement_count'])) {
+                        $rows[] = $row;
+                    }
+                }
+            }
+        } elseif (isset($payload['measurement_count'])) {
+            $rows[] = $payload;
         }
-        if (isset($payload['measurement_count'])) {
-            return $payload;
+
+        if (!$rows) {
+            return null;
         }
-        return null;
+
+        $sum = [
+            'measurement_count' => 0,
+            'ok_count' => 0,
+            'anomaly_count' => 0,
+            'confirmed_count' => 0,
+            'failure_count' => 0,
+        ];
+        foreach ($rows as $row) {
+            foreach ($sum as $k => $_) {
+                $sum[$k] += (int) ($row[$k] ?? 0);
+            }
+        }
+        return $sum;
     }
 
     /**

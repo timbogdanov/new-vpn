@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { Card, Chip } from './ui/index.js';
 import { t } from '../i18n.js';
+import { i18nState } from '../i18n.js';
 
 const props = defineProps({
     host: { type: String, required: true },
@@ -22,33 +23,46 @@ const tone = computed(() => {
     return 'neutral';
 });
 
-const titleKey = computed(() => {
+const badgeLabel = computed(() => {
+    const key = {
+        blocked: 'tools.freedomDetailStatusBlocked',
+        degraded: 'tools.freedomDetailStatusDegraded',
+        reachable: 'tools.freedomDetailStatusReachable',
+        unknown: 'tools.freedomDetailStatusUnknown',
+    }[props.status] || 'tools.freedomDetailStatusUnknown';
+    return t(key);
+});
+
+const plainTitleKey = computed(() => {
     const map = {
-        blocked: 'tools.freedomDetailVerdictBlocked',
-        degraded: 'tools.freedomDetailVerdictDegraded',
-        reachable: 'tools.freedomDetailVerdictReachable',
-        unknown: 'tools.freedomDetailVerdictUnknown',
+        blocked: 'tools.freedomDetailVerdictBlockedPlain',
+        degraded: 'tools.freedomDetailVerdictDegradedPlain',
+        reachable: 'tools.freedomDetailVerdictReachablePlain',
+        unknown: 'tools.freedomDetailVerdictUnknownPlain',
     };
     return map[props.status] || map.unknown;
 });
 
-const reasonKey = computed(() => {
-    const map = {
-        confirmed_block: 'tools.freedomDetailReasonConfirmedBlock',
-        high_anomaly: 'tools.freedomDetailReasonHighAnomaly',
-        partial_anomaly: 'tools.freedomDetailReasonPartialAnomaly',
-        no_data: 'tools.freedomDetailReasonNoData',
-        community_only: 'tools.freedomDetailReasonCommunityOnly',
-        reachable_strong: 'tools.freedomDetailReasonReachableStrong',
-    };
-    return map[props.reason] || '';
+const whatHappenedKey = computed(() => {
+    if (props.status === 'blocked') return 'tools.freedomDetailWhatHappened';
+    if (props.status === 'degraded') return 'tools.freedomDetailWhatHappenedDegraded';
+    if (props.status === 'reachable') return 'tools.freedomDetailWhatHappenedReachable';
+    return null;
 });
+
+let displayNames = null;
+try {
+    const locale = i18nState.locale || 'en';
+    displayNames = new Intl.DisplayNames([locale], { type: 'region' });
+} catch (_) { displayNames = null; }
 
 const networkLabel = computed(() => {
     const parts = [];
-    if (props.countryCode) parts.push(props.countryCode);
     if (props.asnName) parts.push(props.asnName);
-    else if (props.asn) parts.push(props.asn);
+    if (props.countryCode) {
+        try { parts.push(displayNames?.of(props.countryCode) || props.countryCode); }
+        catch (_) { parts.push(props.countryCode); }
+    }
     return parts.join(' · ');
 });
 
@@ -67,11 +81,11 @@ const relativeFresh = computed(() => {
 <template>
     <Card padding="lg" class="verdict-hero">
         <div class="verdict-hero__head">
-            <Chip :tone="tone" dot>{{ status.toUpperCase() }}</Chip>
+            <Chip :tone="tone" dot>{{ badgeLabel }}</Chip>
             <span v-if="networkLabel" class="verdict-hero__net">{{ networkLabel }}</span>
         </div>
-        <h2 class="verdict-hero__title">{{ t(titleKey, { host }) }}</h2>
-        <p v-if="reasonKey" class="verdict-hero__reason">{{ t(reasonKey) }}</p>
+        <h2 class="verdict-hero__title">{{ t(plainTitleKey, { host }) }}</h2>
+        <p v-if="whatHappenedKey" class="verdict-hero__reason">{{ t(whatHappenedKey) }}</p>
         <p v-if="degradedConfidence" class="verdict-hero__note">{{ t('tools.freedomDetailDegradedConfidence') }}</p>
         <div class="verdict-hero__meta">
             <span v-if="relativeFresh">{{ t('tools.freedomDetailFresh', { time: relativeFresh }) }}</span>

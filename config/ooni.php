@@ -41,6 +41,9 @@ return [
     // How many ASN rows to show in the "other networks" breakdown.
     'asn_breakdown_limit' => (int) env('OONI_ASN_BREAKDOWN_LIMIT', 8),
 
+    // How many country rows to show in the "around the world" breakdown.
+    'country_breakdown_limit' => (int) env('OONI_COUNTRY_BREAKDOWN_LIMIT', 8),
+
     // How many rows to render in the Freedom Map dynamic grid.
     'top_blocked_display_limit' => (int) env('OONI_TOP_BLOCKED_DISPLAY', 15),
 
@@ -139,6 +142,86 @@ return [
         // Circumvention-adjacent
         ['key' => 'nitter',      'label' => 'Nitter',       'urls' => ['https://nitter.net/']],
         ['key' => 'element',     'label' => 'Element',      'urls' => ['https://element.io/']],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Regional peers — "nearby countries" shown on the URL details page.
+    |--------------------------------------------------------------------------
+    | Keyed on the user's detected country. When none of the user's country is
+    | in the map, only the global "worst-5" list is shown. Freely expand.
+    */
+
+    'regional_peers' => [
+        'RU' => ['BY', 'KZ', 'UA', 'GE', 'AM'],
+        'BY' => ['RU', 'UA', 'PL', 'LT'],
+        'UA' => ['PL', 'RO', 'MD', 'BY'],
+        'KZ' => ['RU', 'UZ', 'KG', 'TJ'],
+        'IR' => ['IQ', 'SY', 'TR', 'AZ', 'AF'],
+        'CN' => ['VN', 'KP', 'HK', 'MN', 'MM'],
+        'TR' => ['GR', 'BG', 'GE', 'AM', 'IR'],
+        'AM' => ['GE', 'AZ', 'TR', 'IR'],
+        'AZ' => ['GE', 'AM', 'TR', 'IR', 'RU'],
+        'GE' => ['RU', 'AM', 'AZ', 'TR'],
+        'UZ' => ['KZ', 'KG', 'TJ', 'TM'],
+        'KG' => ['KZ', 'UZ', 'TJ', 'CN'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | ASN → friendly carrier name + network type.
+    |--------------------------------------------------------------------------
+    | Used to render "Beeline · mobile network" instead of "AS8402 · 12 meas".
+    | Network types: mobile | broadband | cdn | cloud | transit.
+    | Fallback when an ASN isn't in this map: use probe_asn_name from OONI or
+    | the bare "AS12345" label with "provider" as subtitle.
+    */
+
+    'asn_friendly' => [
+        // Russia — mobile
+        'AS8402'  => ['name' => 'Beeline',       'type' => 'mobile'],
+        'AS25513' => ['name' => 'MTS',           'type' => 'mobile'],
+        'AS31133' => ['name' => 'MegaFon',       'type' => 'mobile'],
+        'AS42610' => ['name' => 'Tele2',         'type' => 'mobile'],
+        'AS39216' => ['name' => 'Yota',          'type' => 'mobile'],
+        // Russia — broadband
+        'AS12389' => ['name' => 'Rostelecom',    'type' => 'broadband'],
+        'AS8359'  => ['name' => 'MTS Home',      'type' => 'broadband'],
+        'AS3216'  => ['name' => 'VimpelCom',     'type' => 'broadband'],
+        'AS35807' => ['name' => 'NetByNet',      'type' => 'broadband'],
+        // Belarus
+        'AS6697'  => ['name' => 'Beltelecom',    'type' => 'broadband'],
+        'AS25106' => ['name' => 'MTS BY',        'type' => 'mobile'],
+        'AS29194' => ['name' => 'A1 BY',         'type' => 'mobile'],
+        // Ukraine
+        'AS35048' => ['name' => 'Triolan',       'type' => 'broadband'],
+        'AS15895' => ['name' => 'Kyivstar',      'type' => 'mobile'],
+        'AS21497' => ['name' => 'Vodafone UA',   'type' => 'mobile'],
+        // Kazakhstan
+        'AS9198'  => ['name' => 'Kazakhtelecom', 'type' => 'broadband'],
+        'AS21299' => ['name' => 'Kcell',         'type' => 'mobile'],
+        // Iran
+        'AS58224' => ['name' => 'TCI',           'type' => 'broadband'],
+        'AS44244' => ['name' => 'Irancell',      'type' => 'mobile'],
+        'AS16322' => ['name' => 'Parsonline',    'type' => 'broadband'],
+        'AS197207'=> ['name' => 'MCI',           'type' => 'mobile'],
+        // China
+        'AS4134'  => ['name' => 'China Telecom', 'type' => 'broadband'],
+        'AS4837'  => ['name' => 'China Unicom',  'type' => 'broadband'],
+        'AS9808'  => ['name' => 'China Mobile',  'type' => 'mobile'],
+        // Turkey
+        'AS9121'  => ['name' => 'Türk Telekom',  'type' => 'broadband'],
+        'AS47331' => ['name' => 'Turkcell',      'type' => 'mobile'],
+        'AS15897' => ['name' => 'Vodafone TR',   'type' => 'mobile'],
+        // CDN / cloud (when users probe through VPNs)
+        'AS13335' => ['name' => 'Cloudflare',    'type' => 'cdn'],
+        'AS16509' => ['name' => 'Amazon AWS',    'type' => 'cloud'],
+        'AS14618' => ['name' => 'Amazon AWS',    'type' => 'cloud'],
+        'AS15169' => ['name' => 'Google',        'type' => 'cloud'],
+        'AS8075'  => ['name' => 'Microsoft',     'type' => 'cloud'],
+        'AS24940' => ['name' => 'Hetzner',       'type' => 'cloud'],
+        'AS14061' => ['name' => 'DigitalOcean',  'type' => 'cloud'],
+        'AS16276' => ['name' => 'OVH',           'type' => 'cloud'],
     ],
 
     /*

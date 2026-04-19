@@ -6,12 +6,13 @@ import { store, fetchUrlDetails, toggleUrlWatch } from '../store.js';
 import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
 
-import { SectionLabel, Button, Sheet, ListRow, ListGroup } from '../components/ui/index.js';
+import { Button, Sheet, ListRow, ListGroup } from '../components/ui/index.js';
 import Skeleton from '../components/Skeleton.vue';
 import VerdictHero from '../components/VerdictHero.vue';
-import TimeseriesSparkline from '../components/TimeseriesSparkline.vue';
-import AsnBreakdownList from '../components/AsnBreakdownList.vue';
-import MeasurementList from '../components/MeasurementList.vue';
+import NetworkSummaryCard from '../components/NetworkSummaryCard.vue';
+import NearbyNetworksCard from '../components/NearbyNetworksCard.vue';
+import AroundTheWorldCard from '../components/AroundTheWorldCard.vue';
+import TechnicalDetailsDisclosure from '../components/TechnicalDetailsDisclosure.vue';
 
 const props = defineProps({ urlHash: { type: String, required: true } });
 const route = useRoute();
@@ -25,15 +26,14 @@ const url = computed(() => {
 const details = ref(null);
 const loading = ref(false);
 const err = ref(null);
-const showWhy = ref(false);
+const showHow = ref(false);
 
 async function load({ force = false } = {}) {
     err.value = null;
     if (!url.value) { err.value = 'missing_url'; return; }
     loading.value = true;
     try {
-        const data = await fetchUrlDetails(url.value, { force });
-        details.value = data;
+        details.value = await fetchUrlDetails(url.value, { force });
     } catch (e) {
         err.value = e?.response?.data?.message || e?.message || 'load_failed';
     } finally {
@@ -69,6 +69,12 @@ function onRecheck() {
     hap.light();
     load({ force: true });
 }
+
+const showEmptyProbeCta = computed(() => {
+    if (!details.value) return false;
+    // Show "probe it yourself" handoff when we have basically no data.
+    return (details.value.aggregated?.totalChecks ?? 0) === 0;
+});
 </script>
 
 <template>
@@ -92,29 +98,20 @@ function onRecheck() {
                 :community-count="details.communityCount"
             />
 
-            <section class="fud__section">
-                <SectionLabel>
-                    {{ t('tools.freedomDetailTimeseries', { days: details.lookbackDays }) }}
-                </SectionLabel>
-                <TimeseriesSparkline :points="details.timeseries" />
-            </section>
+            <NetworkSummaryCard
+                :aggregated="details.aggregated || {}"
+                :timeseries="details.timeseries || []"
+            />
 
-            <section class="fud__section">
-                <SectionLabel>
-                    {{ t('tools.freedomDetailAsnBreakdown', { country: details.countryCode }) }}
-                </SectionLabel>
-                <AsnBreakdownList :breakdown="details.asnBreakdown" />
-            </section>
+            <NearbyNetworksCard :breakdown="details.asnBreakdown || []" />
 
-            <section class="fud__section">
-                <SectionLabel>{{ t('tools.freedomDetailMeasurements') }}</SectionLabel>
-                <MeasurementList :measurements="details.recentMeasurements" />
-            </section>
+            <AroundTheWorldCard :breakdown="details.countryBreakdown || []" />
 
             <section class="fud__actions">
                 <Button
                     v-if="details.verdictStatus === 'blocked' || details.verdictStatus === 'degraded'"
                     variant="primary"
+                    block
                     @click="onUnblock"
                 >
                     {{ t('tools.freedomDetailUnblockCta') }}
@@ -126,7 +123,7 @@ function onRecheck() {
                             {{ isWatched ? t('tools.freedomWatching') : t('tools.freedomWatch') }}
                         </template>
                     </ListRow>
-                    <ListRow v-if="!details.measurements || !details.recentMeasurements?.length" chevron @click="onProbe">
+                    <ListRow v-if="showEmptyProbeCta" chevron @click="onProbe">
                         <template #title>{{ t('tools.freedomDetailRunProbe') }}</template>
                     </ListRow>
                     <ListRow chevron @click="onRecheck" :disabled="loading">
@@ -134,20 +131,22 @@ function onRecheck() {
                             {{ loading ? t('tools.freedomRunning') : t('tools.freedomDetailRecheck') }}
                         </template>
                     </ListRow>
-                    <ListRow chevron @click="showWhy = true">
-                        <template #title>{{ t('tools.freedomDetailWhyTitle') }}</template>
+                    <ListRow chevron @click="showHow = true">
+                        <template #title>{{ t('tools.freedomDetailHowMeasured') }}</template>
                     </ListRow>
                 </ListGroup>
-
-                <p class="fud__attribution">{{ t('tools.freedomAttribution') }}</p>
             </section>
+
+            <TechnicalDetailsDisclosure :details="details" />
+
+            <p class="fud__attribution">{{ t('tools.freedomAttribution') }}</p>
         </template>
 
         <p v-if="err && !details" class="fud__err">{{ err }}</p>
 
-        <Sheet v-model:open="showWhy" :aria-label="t('tools.freedomDetailWhyTitle')">
-            <h3 class="fud__why-title">{{ t('tools.freedomDetailWhyTitle') }}</h3>
-            <p class="fud__why-body">{{ t('tools.freedomDetailWhyBody') }}</p>
+        <Sheet v-model:open="showHow" :aria-label="t('tools.freedomDetailHowMeasured')">
+            <h3 class="fud__why-title">{{ t('tools.freedomDetailHowMeasured') }}</h3>
+            <p class="fud__why-body">{{ t('tools.freedomDetailHowMeasuredBody') }}</p>
         </Sheet>
     </div>
 </template>
@@ -160,7 +159,6 @@ function onRecheck() {
     padding: 16px 16px 32px;
 }
 .fud__skel { display: flex; flex-direction: column; gap: 12px; }
-.fud__section { display: flex; flex-direction: column; gap: 8px; }
 .fud__actions { display: flex; flex-direction: column; gap: 12px; }
 .fud__err {
     margin: 0;

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\DTO\OoniAsnBreakdownDTO;
+use App\DTO\OoniCountryBreakdownDTO;
 use App\DTO\OoniMeasurementDTO;
 use App\DTO\OoniServiceVerdictDTO;
 use App\DTO\OoniSummaryDTO;
@@ -420,7 +421,8 @@ class OoniService
         $days    = max(7, min(60, $days));
 
         $hash = sha1($normalizedUrl);
-        $cacheKey = "ooni:url:{$hash}:{$country}:" . ($asnUp ?: 'NOASN') . ":{$days}";
+        // v2 bump — new DTO shape (countryBreakdown, aggregated, asn.friendlyName).
+        $cacheKey = "ooni:url:v2:{$hash}:{$country}:" . ($asnUp ?: 'NOASN') . ":{$days}";
         $ttl = (int) config('ooni.details_cache_ttl', 900);
 
         if ($force) {
@@ -449,13 +451,14 @@ class OoniService
         $until = Carbon::now('UTC')->addDay()->toDateString();
         $asnNumeric = $asn ? preg_replace('/^AS/i', '', $asn) : null;
 
-        [$timeseriesPayload, $asnPayload, $measurementsPayload] = $this->poolDetailRequests(
+        [$timeseriesPayload, $asnPayload, $measurementsPayload, $countryPayload] = $this->poolDetailRequests(
             $url, $country, $asnNumeric, $since, $until,
         );
 
         $timeseries = $this->extractTimeseries($timeseriesPayload, $days);
         $asnBreakdown = $this->extractAsnBreakdown($asnPayload);
         $measurements = $this->extractMeasurements($measurementsPayload);
+        $countryBreakdown = $this->extractCountryBreakdown($countryPayload, $country);
 
         // Degraded-confidence fallback: if ASN-scoped timeseries is thin, retry
         // country-only so the sparkline isn't empty.
@@ -487,6 +490,8 @@ class OoniService
             $reason = 'community_only';
         }
 
+        $aggregated = $this->buildAggregated($timeseries, $days);
+
         return new OoniUrlDetailsDTO(
             url: $url,
             host: $host,
@@ -508,15 +513,71 @@ class OoniService
             timeseries: $timeseries,
             asnBreakdown: $asnBreakdown,
             measurements: $measurements,
+            countryBreakdown: $countryBreakdown,
+            aggregated: $aggregated,
             freshAt: Carbon::now(),
         );
     }
 
     /**
-     * Three parallel requests: daily timeseries, per-ASN breakdown, recent
-     * measurement records. Returns payloads in a fixed order.
+     * Roll up the per-day timeseries into a single plain-language summary
+     * used by the "network summary" card on the frontend.
      *
-     * @return array{0: ?array, 1: ?array, 2: ?array}
+     * @param  array<int, OoniTimeseriesPointDTO>  $points
+     * @return array{totalChecks:int,blockedChecks:int,okChecks:int,confirmedBlocks:int,failureChecks:int,windowDays:int,blockPercent:int,trendDirection:string}
+     */
+    private function buildAggregated(array $points, int $windowDays): array
+    {
+        $total = 0; $ok = 0; $anomaly = 0; $confirmed = 0; $failure = 0;
+        foreach ($points as $p) {
+            $total += $p->measurementCount;
+            $ok += $p->okCount;
+            $anomaly += $p->anomalyCount;
+            $confirmed += $p->confirmedCount;
+            $failure += $p->failureCount;
+        }
+        $blocked = $anomaly + $confirmed;
+        $blockPct = $total > 0 ? (int) round(($blocked / $total) * 100) : 0;
+
+        // Trend: compare first-half vs second-half block ratio.
+        $mid = max(1, (int) floor(count($points) / 2));
+        $earlyBlocks = 0; $earlyTotal = 0; $lateBlocks = 0; $lateTotal = 0;
+        foreach ($points as $i => $p) {
+            if ($i < $mid) {
+                $earlyTotal += $p->measurementCount;
+                $earlyBlocks += $p->anomalyCount + $p->confirmedCount;
+            } else {
+                $lateTotal += $p->measurementCount;
+                $lateBlocks += $p->anomalyCount + $p->confirmedCount;
+            }
+        }
+        $earlyRatio = $earlyTotal > 0 ? $earlyBlocks / $earlyTotal : 0;
+        $lateRatio  = $lateTotal  > 0 ? $lateBlocks  / $lateTotal  : 0;
+        $delta = $lateRatio - $earlyRatio;
+        $trend = 'steady';
+        if ($total >= (int) config('ooni.min_measurements', 3) * 2) {
+            if ($delta >= 0.10) $trend = 'worsening';
+            elseif ($delta <= -0.10) $trend = 'improving';
+        }
+
+        return [
+            'totalChecks'     => $total,
+            'blockedChecks'   => $blocked,
+            'okChecks'        => $ok,
+            'confirmedBlocks' => $confirmed,
+            'failureChecks'   => $failure,
+            'windowDays'      => $windowDays,
+            'blockPercent'    => $blockPct,
+            'trendDirection'  => $trend,
+        ];
+    }
+
+    /**
+     * Four parallel requests: daily timeseries, per-ASN breakdown, recent
+     * measurement records, per-country breakdown. Returns payloads in a fixed
+     * order. The per-country request is global (no probe_cc filter).
+     *
+     * @return array{0: ?array, 1: ?array, 2: ?array, 3: ?array}
      */
     private function poolDetailRequests(
         string $url,
@@ -579,6 +640,19 @@ class OoniService
                     ->withUserAgent('Larastory-VPN-MiniApp/1.0 (+OONI url details)')
                     ->get($base . '/api/v1/measurements', $mParams);
 
+                // 3: global per-country breakdown (no probe_cc or probe_asn)
+                $requests[] = $pool
+                    ->timeout($timeout)
+                    ->acceptJson()
+                    ->withUserAgent('Larastory-VPN-MiniApp/1.0 (+OONI url details)')
+                    ->get($base . '/api/v1/aggregation', [
+                        'test_name' => 'web_connectivity',
+                        'input'     => $url,
+                        'since'     => $since,
+                        'until'     => $until,
+                        'axis_x'    => 'probe_cc',
+                    ]);
+
                 return $requests;
             });
         } catch (\Throwable $e) {
@@ -586,7 +660,7 @@ class OoniService
             return [null, null, null];
         }
 
-        $out = [null, null, null];
+        $out = [null, null, null, null];
         foreach ($responses as $i => $resp) {
             if ($resp instanceof \Throwable) {
                 Log::info('OONI: url-details single request failed', ['i' => $i, 'error' => $resp->getMessage()]);
@@ -643,6 +717,7 @@ class OoniService
     private function extractAsnBreakdown(?array $payload): array
     {
         $rows = (is_array($payload) && is_array($payload['result'] ?? null)) ? $payload['result'] : [];
+        $friendlyMap = (array) config('ooni.asn_friendly', []);
         $out = [];
         foreach ($rows as $row) {
             if (!is_array($row) || !isset($row['probe_asn'])) {
@@ -656,9 +731,17 @@ class OoniService
             if ($asnNum <= 0) {
                 continue;
             }
+            $asnLabel = 'AS' . $asnNum;
+            $friendly = $friendlyMap[$asnLabel] ?? null;
+            $asnName = $row['probe_asn_name'] ?? null;
+            if (!$asnName && is_array($friendly)) {
+                $asnName = $friendly['name'] ?? null;
+            }
             $out[] = new OoniAsnBreakdownDTO(
-                asn: 'AS' . $asnNum,
-                asnName: null,
+                asn: $asnLabel,
+                asnName: $asnName,
+                friendlyName: is_array($friendly) ? ($friendly['name'] ?? null) : null,
+                networkType: is_array($friendly) ? ($friendly['type'] ?? null) : null,
                 measurementCount: $m,
                 okCount: (int) ($row['ok_count'] ?? 0),
                 anomalyCount: $anom,
@@ -677,6 +760,76 @@ class OoniService
 
         $limit = (int) config('ooni.asn_breakdown_limit', 8);
         return $limit > 0 ? array_slice($out, 0, $limit) : $out;
+    }
+
+    /**
+     * Cross-country breakdown for a URL. Returns the user's regional peers
+     * (from config) merged with the globally-worst countries for this URL,
+     * capped to `country_breakdown_limit`. The user's own country is always
+     * excluded (it's already the primary focus of the page).
+     *
+     * @return array<int, OoniCountryBreakdownDTO>
+     */
+    private function extractCountryBreakdown(?array $payload, string $userCountry): array
+    {
+        $rows = (is_array($payload) && is_array($payload['result'] ?? null)) ? $payload['result'] : [];
+        $regional = array_map('strtoupper', (array) (config('ooni.regional_peers.' . $userCountry, []) ?: []));
+        $regionalSet = array_flip($regional);
+
+        // Build a DTO per country bucket.
+        $all = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || empty($row['probe_cc'])) {
+                continue;
+            }
+            $cc = strtoupper((string) $row['probe_cc']);
+            if ($cc === '' || $cc === $userCountry) {
+                continue;
+            }
+            $m = (int) ($row['measurement_count'] ?? 0);
+            if ($m <= 0) {
+                continue;
+            }
+            $conf = (int) ($row['confirmed_count'] ?? 0);
+            $anom = (int) ($row['anomaly_count'] ?? 0);
+            $all[$cc] = new OoniCountryBreakdownDTO(
+                countryCode: $cc,
+                measurementCount: $m,
+                okCount: (int) ($row['ok_count'] ?? 0),
+                anomalyCount: $anom,
+                confirmedCount: $conf,
+                failureCount: (int) ($row['failure_count'] ?? 0),
+                status: $this->classify($m, $conf, $anom),
+                isRegional: isset($regionalSet[$cc]),
+            );
+        }
+
+        // Take all regional peers first (preserve config order where possible).
+        $pickedRegional = [];
+        foreach ($regional as $cc) {
+            if (isset($all[$cc])) {
+                $pickedRegional[] = $all[$cc];
+                unset($all[$cc]);
+            }
+        }
+
+        // Then worst-N globally from whatever's left, ranked blocked→degraded→
+        // unknown→reachable and by anomaly ratio within each tier.
+        $remaining = array_values($all);
+        $rank = ['blocked' => 0, 'degraded' => 1, 'unknown' => 2, 'reachable' => 3];
+        usort($remaining, function (OoniCountryBreakdownDTO $a, OoniCountryBreakdownDTO $b) use ($rank) {
+            $r = ($rank[$a->status] ?? 9) <=> ($rank[$b->status] ?? 9);
+            if ($r !== 0) return $r;
+            $ra = $a->measurementCount > 0 ? ($a->anomalyCount + $a->confirmedCount) / $a->measurementCount : 0;
+            $rb = $b->measurementCount > 0 ? ($b->anomalyCount + $b->confirmedCount) / $b->measurementCount : 0;
+            return $rb <=> $ra;
+        });
+
+        $limit = (int) config('ooni.country_breakdown_limit', 8);
+        $worstNeeded = max(0, $limit - count($pickedRegional));
+        $worst = array_slice($remaining, 0, $worstNeeded);
+
+        return array_merge($pickedRegional, $worst);
     }
 
     /**

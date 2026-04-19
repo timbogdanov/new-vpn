@@ -241,7 +241,11 @@ export async function fetchUrlDetails(url, { force = false, country = null, asn 
     if (!url) throw new Error('url required');
     const hash = hashFor(url);
     const cached = store.urlDetailsCache[hash];
-    if (!force && cached && Date.now() - cached._fetchedAt < 15 * 60_000) {
+    // Invalidate pre-v2 cached entries that lack the new shape (aggregated +
+    // countryBreakdown). Users who loaded a detail page before the rework
+    // have a stale object sitting in memory.
+    const cacheShapeOk = cached && cached.aggregated && Array.isArray(cached.countryBreakdown);
+    if (!force && cacheShapeOk && Date.now() - cached._fetchedAt < 15 * 60_000) {
         return cached;
     }
     const params = { url, days };

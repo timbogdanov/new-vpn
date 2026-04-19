@@ -10,6 +10,8 @@ readonly class OoniUrlDetailsDTO
      * @param  array<int, OoniTimeseriesPointDTO>  $timeseries
      * @param  array<int, OoniAsnBreakdownDTO>  $asnBreakdown
      * @param  array<int, OoniMeasurementDTO>  $measurements
+     * @param  array<int, OoniCountryBreakdownDTO>  $countryBreakdown
+     * @param  array{totalChecks:int,blockedChecks:int,okChecks:int,confirmedBlocks:int,failureChecks:int,windowDays:int,blockPercent:int,trendDirection:string}  $aggregated
      */
     public function __construct(
         public string $url,
@@ -19,8 +21,8 @@ readonly class OoniUrlDetailsDTO
         public ?string $asn,
         public ?string $asnName,
         public int $lookbackDays,
-        public string $verdictStatus,   // reachable|degraded|blocked|unknown
-        public string $verdictReason,   // confirmed_block|high_anomaly|partial_anomaly|no_data|community_only|reachable_strong
+        public string $verdictStatus,
+        public string $verdictReason,
         public int $measurementCount,
         public int $confirmedCount,
         public int $anomalyCount,
@@ -32,7 +34,9 @@ readonly class OoniUrlDetailsDTO
         public array $timeseries,
         public array $asnBreakdown,
         public array $measurements,
-        public Carbon $freshAt,
+        public array $countryBreakdown = [],
+        public array $aggregated = [],
+        public Carbon $freshAt = new Carbon(),
     ) {}
 
     public function toArray(): array
@@ -57,7 +61,9 @@ readonly class OoniUrlDetailsDTO
             'recommendedServerSlug' => $this->recommendedServerSlug,
             'timeseries' => array_map(fn ($p) => $p->toArray(), $this->timeseries),
             'asnBreakdown' => array_map(fn ($a) => $a->toArray(), $this->asnBreakdown),
+            'countryBreakdown' => array_map(fn ($c) => $c->toArray(), $this->countryBreakdown),
             'recentMeasurements' => array_map(fn ($m) => $m->toArray(), $this->measurements),
+            'aggregated' => $this->aggregated,
             'freshAt' => $this->freshAt->toIso8601String(),
         ];
     }

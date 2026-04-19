@@ -196,7 +196,10 @@ onMounted(load);
 
         <PaywallSheet v-model:open="paywallOpen" />
         <Sheet v-model:open="historyOpen" :aria-label="t('billing.history')">
-            <h2 class="profile__history-head font-display">{{ t('billing.history') }}</h2>
+            <header class="profile__sheet-head">
+                <p class="profile__sheet-eyebrow">{{ t('billing.title') }}</p>
+                <h2 class="profile__sheet-title font-display">{{ t('billing.history') }}</h2>
+            </header>
             <BillingHistory />
         </Sheet>
     </div>
@@ -287,8 +290,24 @@ onMounted(load);
     color: var(--color-accent);
 }
 
-.profile__history-head {
-    margin: 0 0 16px;
+.profile__sheet-head {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 4px 20px;
+    max-width: calc(100% - 44px);
+}
+.profile__sheet-eyebrow {
+    margin: 0;
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-hint);
+}
+.profile__sheet-title {
+    margin: 0;
     font-size: 28px;
     line-height: 34px;
     color: var(--color-text-strong);

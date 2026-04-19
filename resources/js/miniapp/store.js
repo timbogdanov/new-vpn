@@ -17,6 +17,9 @@ export const store = reactive({
     connectCache: {},
     toast: null,
 
+    ooni: null,
+    ooniLoading: false,
+
     get availableServers() {
         return this.servers.filter((s) => !s.isComingSoon);
     },
@@ -104,6 +107,23 @@ export async function runIpCheck() {
 export async function runSpeedTest() {
     const { data } = await api.post('/tools/speed-test');
     return data.result;
+}
+
+export async function fetchOoniSummary({ force = false } = {}) {
+    if (!force && store.ooni && (Date.now() - (store.ooni._fetchedAt || 0) < 15 * 60_000)) {
+        return store.ooni;
+    }
+    store.ooniLoading = true;
+    try {
+        const { data } = await api.get('/tools/ooni-summary');
+        store.ooni = { ...data.result, _fetchedAt: Date.now() };
+        return store.ooni;
+    } catch (e) {
+        store.ooni = null;
+        throw e;
+    } finally {
+        store.ooniLoading = false;
+    }
 }
 
 export function toast(message, kind = 'info', ms = 2400) {

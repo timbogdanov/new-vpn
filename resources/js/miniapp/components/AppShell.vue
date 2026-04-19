@@ -19,6 +19,7 @@ const title = computed(() => {
         case 'profile': return t('profile.title');
         case 'tools':   return t('tools.title');
         case 'censorship': return t('tools.censorshipTitle');
+        case 'freedom': return t('tools.freedomTitle');
         case 'server-detail': return store.servers.find((s) => s.slug === route.params.slug)?.name || '';
         case 'dev-ui':  return 'UI';
         default: return '';

@@ -1,0 +1,200 @@
+<?php
+
+namespace App\Services;
+
+use App\DTO\OoniServiceVerdictDTO;
+use App\DTO\OoniSummaryDTO;
+use Carbon\Carbon;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * Queries OONI's aggregation API for per-service censorship verdicts,
+ * keyed on the user's detected country + ASN. Results cached per
+ * (country, asn) for config('ooni.cache_ttl') seconds.
+ *
+ * Verdict classifier (per-URL, rolled up worst-of across URLs per service):
+ *   confirmed_count > 0              => blocked        (OONI confirmed censorship)
+ *   anomaly / measurements >= 0.5    => blocked        (majority anomalous)
+ *   anomaly / measurements >= 0.2    => degraded       (partial interference)
+ *   measurements >= min_measurements => reachable
+ *   otherwise                        => unknown        (thin data)
+ */
+class OoniService
+{
+    public function summary(string $countryCode, ?string $asn): OoniSummaryDTO
+    {
+        $country = strtoupper(trim($countryCode)) ?: 'XX';
+        $asnKey = $asn ? strtoupper(trim($asn)) : 'NOASN';
+        $cacheKey = "ooni:summary:{$country}:{$asnKey}";
+
+        $ttl = (int) config('ooni.cache_ttl', 3600);
+
+        $cached = Cache::get($cacheKey);
+        if ($cached instanceof OoniSummaryDTO) {
+            return $cached;
+        }
+
+        $summary = $this->buildSummary($country, $asn);
+        Cache::put($cacheKey, $summary, $ttl);
+        return $summary;
+    }
+
+    private function buildSummary(string $country, ?string $asn): OoniSummaryDTO
+    {
+        $services = (array) config('ooni.services', []);
+        $lookback = (int) config('ooni.lookback_days', 7);
+        $since = Carbon::now('UTC')->subDays($lookback)->toDateString();
+        $until = Carbon::now('UTC')->addDay()->toDateString();
+
+        // Flatten every (service_key, url) into a single parallel-pool plan,
+        // then fold back per service.
+        $plan = [];
+        foreach ($services as $svc) {
+            foreach ($svc['urls'] as $url) {
+                $plan[] = ['key' => $svc['key'], 'label' => $svc['label'], 'url' => $url];
+            }
+        }
+
+        $raw = $this->fetchAggregations($plan, $country, $asn, $since, $until);
+
+        // Fold per-URL counts into per-service verdicts.
+        $perService = [];
+        foreach ($services as $svc) {
+            $perService[$svc['key']] = [
+                'label' => $svc['label'],
+                'm' => 0, 'ok' => 0, 'conf' => 0, 'anom' => 0,
+            ];
+        }
+        foreach ($plan as $i => $row) {
+            $counts = $raw[$i] ?? null;
+            if (!$counts) {
+                continue;
+            }
+            $bucket = &$perService[$row['key']];
+            $bucket['m']    += $counts['measurement_count'] ?? 0;
+            $bucket['ok']   += $counts['ok_count']          ?? 0;
+            $bucket['conf'] += $counts['confirmed_count']   ?? 0;
+            $bucket['anom'] += $counts['anomaly_count']     ?? 0;
+            unset($bucket);
+        }
+
+        $verdicts = [];
+        foreach ($services as $svc) {
+            $b = $perService[$svc['key']];
+            $verdicts[] = new OoniServiceVerdictDTO(
+                key: $svc['key'],
+                label: $svc['label'],
+                status: $this->classify($b['m'], $b['conf'], $b['anom']),
+                measurementCount: $b['m'],
+                confirmedCount: $b['conf'],
+                anomalyCount: $b['anom'],
+                okCount: $b['ok'],
+                lastChangeAt: null, // reserved for phase 2 (watchlist diffs)
+            );
+        }
+
+        return new OoniSummaryDTO(
+            countryCode: $country,
+            asn: $asn,
+            asnName: null,
+            lookbackDays: $lookback,
+            services: $verdicts,
+            freshAt: Carbon::now(),
+        );
+    }
+
+    /**
+     * @param  array<int, array{key:string,label:string,url:string}>  $plan
+     * @return array<int, ?array>  counts keyed by plan index
+     */
+    private function fetchAggregations(array $plan, string $country, ?string $asn, string $since, string $until): array
+    {
+        $base = rtrim((string) config('ooni.api_url', 'https://api.ooni.org'), '/');
+        $timeout = (int) config('ooni.timeout', 12);
+
+        $params = [
+            'test_name' => 'web_connectivity',
+            'probe_cc'  => $country,
+            'since'     => $since,
+            'until'     => $until,
+        ];
+        if ($asn) {
+            $params['probe_asn'] = $asn;
+        }
+
+        try {
+            $responses = Http::pool(fn (Pool $pool) => array_map(
+                fn ($row) => $pool
+                    ->timeout($timeout)
+                    ->acceptJson()
+                    ->withUserAgent('Larastory-VPN-MiniApp/1.0 (+OONI summary)')
+                    ->get($base . '/api/v1/aggregation', array_merge($params, ['input' => $row['url']])),
+                $plan,
+            ));
+        } catch (\Throwable $e) {
+            Log::warning('OONI: pool request threw', ['error' => $e->getMessage()]);
+            return [];
+        }
+
+        $out = [];
+        foreach ($responses as $i => $resp) {
+            if ($resp instanceof \Throwable) {
+                Log::info('OONI: single-URL fetch failed', [
+                    'url'   => $plan[$i]['url'] ?? null,
+                    'error' => $resp->getMessage(),
+                ]);
+                $out[$i] = null;
+                continue;
+            }
+            if (!$resp->successful()) {
+                $out[$i] = null;
+                continue;
+            }
+            $payload = $resp->json();
+            $out[$i] = $this->extractCounts($payload);
+        }
+        return $out;
+    }
+
+    /**
+     * OONI's /aggregation returns either a single object (when no axis) or a
+     * `result` list. We request without an axis_x, so we get a single summary.
+     */
+    private function extractCounts(mixed $payload): ?array
+    {
+        if (!is_array($payload)) {
+            return null;
+        }
+        // Shape 1: { v: 1, dimension_count: 0, result: [ { measurement_count, ok_count, ... } ] }
+        if (isset($payload['result'][0]) && is_array($payload['result'][0])) {
+            return $payload['result'][0];
+        }
+        // Shape 2: top-level counts
+        if (isset($payload['measurement_count'])) {
+            return $payload;
+        }
+        return null;
+    }
+
+    private function classify(int $measurements, int $confirmed, int $anomaly): string
+    {
+        $min = (int) config('ooni.min_measurements', 3);
+        if ($confirmed > 0) {
+            return 'blocked';
+        }
+        if ($measurements < $min) {
+            return 'unknown';
+        }
+        $ratio = $measurements > 0 ? $anomaly / $measurements : 0.0;
+        if ($ratio >= 0.5) {
+            return 'blocked';
+        }
+        if ($ratio >= 0.2) {
+            return 'degraded';
+        }
+        return 'reachable';
+    }
+}

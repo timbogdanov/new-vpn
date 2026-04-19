@@ -130,6 +130,11 @@ function goCensorship() {
     router.push('/tools/censorship');
 }
 
+function goFreedom() {
+    hap.select();
+    router.push('/tools/freedom');
+}
+
 function fmtMbps(v) {
     if (v == null) return '—';
     return `${Number(v).toFixed(1)} Mbps`;
@@ -255,6 +260,10 @@ function fmtMs(v) {
 
         <section class="tools__section">
             <ListGroup>
+                <ListRow chevron @click="goFreedom">
+                    <template #title>{{ t('tools.freedomTitle') }}</template>
+                    <template #subtitle>{{ t('tools.freedomEntry') }}</template>
+                </ListRow>
                 <ListRow chevron @click="goCensorship">
                     <template #title>{{ t('tools.censorshipTitle') }}</template>
                     <template #subtitle>{{ t('tools.censorshipIntro') }}</template>

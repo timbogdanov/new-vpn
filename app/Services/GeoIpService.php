@@ -33,7 +33,7 @@ class GeoIpService
         try {
             // Use ip-api.com (free, no API key needed, 45 req/min limit)
             $response = Http::timeout(5)->get("http://ip-api.com/json/{$ip}", [
-                'fields' => 'status,message,country,countryCode,city,isp,query'
+                'fields' => 'status,message,country,countryCode,city,isp,query,as,asname',
             ]);
 
             if (!$response->successful()) {
@@ -50,6 +50,9 @@ class GeoIpService
 
             $isProtected = $this->checkIfProtected($data['countryCode'] ?? '', $data['isp'] ?? '');
 
+            // `as` comes back like "AS15169 Google LLC"; split into number + name.
+            [$asn, $asnName] = $this->splitAsField($data['as'] ?? null, $data['asname'] ?? null);
+
             return new IpCheckResultDTO(
                 ip: $data['query'] ?? $ip,
                 city: $data['city'] ?? 'Unknown',
@@ -57,7 +60,9 @@ class GeoIpService
                 countryCode: $data['countryCode'] ?? '',
                 isp: $data['isp'] ?? 'Unknown',
                 isProtected: $isProtected,
-                checkedAt: Carbon::now()
+                checkedAt: Carbon::now(),
+                asn: $asn,
+                asnName: $asnName,
             );
 
         } catch (\Exception $e) {
@@ -74,6 +79,19 @@ class GeoIpService
 
         // Must match both country AND ISP to be considered protected
         return $matchesCountry && $matchesIsp;
+    }
+
+    private function splitAsField(?string $as, ?string $asname): array
+    {
+        if (!$as) {
+            return [null, $asname ?: null];
+        }
+        if (preg_match('/^(AS\d+)\s*(.*)$/i', $as, $m)) {
+            $num = strtoupper($m[1]);
+            $name = trim($m[2]) ?: ($asname ?: null);
+            return [$num, $name];
+        }
+        return [null, $asname ?: $as];
     }
 
     private function isPrivateIp(string $ip): bool

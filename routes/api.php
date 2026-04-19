@@ -21,6 +21,7 @@ Route::prefix('api/miniapp')
 
         Route::post('/tools/ip-check', [ToolsController::class, 'ipCheck']);
         Route::post('/tools/speed-test', [ToolsController::class, 'speedTest']);
+        Route::get('/tools/ooni-summary', [ToolsController::class, 'ooniSummary']);
 
         Route::get('/billing/plans', [BillingController::class, 'plans']);
         Route::post('/billing/invoice', [BillingController::class, 'invoice'])->middleware('throttle:20,1');

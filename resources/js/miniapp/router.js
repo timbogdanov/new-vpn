@@ -7,6 +7,7 @@ import ServerDetail from './views/ServerDetail.vue';
 import Profile from './views/Profile.vue';
 import Tools from './views/Tools.vue';
 import CensorshipProbe from './views/CensorshipProbe.vue';
+import FreedomMap from './views/FreedomMap.vue';
 import Paywall from './views/Paywall.vue';
 import DevUI from './views/DevUI.vue';
 
@@ -17,6 +18,7 @@ const routes = [
     { path: '/profile', name: 'profile', component: Profile, meta: { title: 'Profile' } },
     { path: '/tools', name: 'tools', component: Tools, meta: { title: 'Tools' } },
     { path: '/tools/censorship', name: 'censorship', component: CensorshipProbe, meta: { title: 'Censorship' } },
+    { path: '/tools/freedom', name: 'freedom', component: FreedomMap, meta: { title: 'Freedom' } },
     { path: '/paywall', name: 'paywall', component: Paywall, meta: { title: 'Upgrade' } },
     { path: '/dev/ui', name: 'dev-ui', component: DevUI, meta: { title: 'UI Primitives' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },

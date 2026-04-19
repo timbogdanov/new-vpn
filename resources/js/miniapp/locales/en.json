@@ -11,7 +11,10 @@
         "noLastServer": "No recent connection",
         "connectAgain": "Connect again",
         "account": "Account",
-        "gateways": "{n} gateways"
+        "gateways": "{n} gateways",
+        "networkToday": "Your network today",
+        "networkClean": "No known blocks on your network",
+        "networkBlocked": "{n} services blocked on your network"
     },
     "servers": {
         "title": "Servers",
@@ -106,7 +109,22 @@
         "censorshipSummary": "{ok} of {total} reachable",
         "censorshipReachable": "Reachable",
         "censorshipBlocked": "Blocked",
-        "censorshipChecking": "Checking…"
+        "censorshipChecking": "Checking…",
+        "freedomTitle": "Freedom map",
+        "freedomEntry": "What's blocked on your network, right now",
+        "freedomIntro": "Based on OONI reports from {country} · {asn} in the last week.",
+        "freedomDetecting": "Detecting your network…",
+        "freedomAsnUnknown": "unknown network",
+        "freedomSummary": "{blocked} of {total} services blocked",
+        "freedomLookback": "Last {days} days",
+        "freedomMeasurements": "{n} measurements",
+        "freedomReachable": "Reachable",
+        "freedomDegraded": "Degraded",
+        "freedomBlocked": "Blocked",
+        "freedomUnknown": "Unknown",
+        "freedomRefresh": "Re-check",
+        "freedomRunning": "Checking…",
+        "freedomAttribution": "Powered by OONI · ooni.org"
     },
     "common": {
         "back": "Back",

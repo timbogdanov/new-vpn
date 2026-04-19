@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { store, fetchProfile } from '../store.js';
+import { store, fetchProfile, fetchOoniSummary } from '../store.js';
 import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
 import { hoursUntilExpiry, daysUntilExpiry, isTrialing, isExpired, activeSubscription } from '../billing.js';
@@ -11,7 +11,7 @@ import ConnectHero from '../components/ConnectHero.vue';
 import OnboardingTour from '../components/OnboardingTour.vue';
 import PaywallSheet from '../components/billing/PaywallSheet.vue';
 import Skeleton from '../components/Skeleton.vue';
-import { SectionLabel, ListGroup, ListRow } from '../components/ui/index.js';
+import { SectionLabel, ListGroup, ListRow, Chip } from '../components/ui/index.js';
 
 const router = useRouter();
 
@@ -51,6 +51,21 @@ function formatBytes(bytes) {
 
 function openPaywall() { hap.select(); paywallOpen.value = true; }
 
+const ooni = computed(() => store.ooni);
+const ooniBlocked = computed(() => {
+    const svcs = ooni.value?.services || [];
+    return svcs.filter((s) => s.status === 'blocked' || s.status === 'degraded').length;
+});
+const ooniTone = computed(() => {
+    if (!ooni.value) return 'neutral';
+    if (ooniBlocked.value === 0) return 'success';
+    const total = ooni.value.total || (ooni.value.services?.length ?? 0);
+    if (total && ooniBlocked.value <= Math.ceil(total * 0.2)) return 'warning';
+    return 'danger';
+});
+
+function goFreedom() { hap.select(); router.push('/tools/freedom'); }
+
 function goConnect() {
     if (!recommended.value) { openServers(); return; }
     hap.medium();
@@ -64,6 +79,7 @@ onMounted(() => {
     if (!store.profile) {
         fetchProfile().catch(() => {});
     }
+    fetchOoniSummary().catch(() => {});
 });
 </script>
 
@@ -79,6 +95,27 @@ onMounted(() => {
             @choose="openServers"
             @paywall="openPaywall"
         />
+
+        <section v-if="ooni">
+            <SectionLabel>{{ t('home.networkToday') }}</SectionLabel>
+            <ListGroup>
+                <ListRow chevron @click="goFreedom">
+                    <template #title>
+                        {{ ooniBlocked > 0
+                            ? t('home.networkBlocked', { n: ooniBlocked })
+                            : t('home.networkClean') }}
+                    </template>
+                    <template #subtitle>
+                        {{ ooni.asnName || ooni.asn || ooni.countryCode }}
+                    </template>
+                    <template #trailing>
+                        <Chip :tone="ooniTone" dot>
+                            {{ ooniBlocked }}/{{ ooni.total }}
+                        </Chip>
+                    </template>
+                </ListRow>
+            </ListGroup>
+        </section>
 
         <section>
             <SectionLabel>{{ t('billing.title') }}</SectionLabel>

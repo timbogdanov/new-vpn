@@ -14,11 +14,12 @@ readonly class IpCheckResultDTO
         public string $isp,
         public bool $isProtected,
         public Carbon $checkedAt,
+        public ?string $asn = null,
+        public ?string $asnName = null,
     ) {}
 
     public function getFlag(): string
     {
-        // Convert country code to flag emoji
         $code = strtoupper($this->countryCode);
         if (strlen($code) !== 2) {
             return '';
@@ -49,6 +50,8 @@ readonly class IpCheckResultDTO
             'isp' => $this->isp,
             'isProtected' => $this->isProtected,
             'checkedAt' => $this->checkedAt->toIso8601String(),
+            'asn' => $this->asn,
+            'asnName' => $this->asnName,
         ];
     }
 }

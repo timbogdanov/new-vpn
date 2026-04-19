@@ -17,3 +17,8 @@ Schedule::command('billing:enforce-quotas')
     ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
+
+Schedule::command('ooni:warm-cache --force')
+    ->hourly()
+    ->withoutOverlapping()
+    ->runInBackground();

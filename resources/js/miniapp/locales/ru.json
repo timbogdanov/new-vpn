@@ -11,7 +11,10 @@
         "noLastServer": "Пока без подключений",
         "connectAgain": "Подключиться снова",
         "account": "Аккаунт",
-        "gateways": "{n} серверов"
+        "gateways": "{n} серверов",
+        "networkToday": "Ваша сеть сегодня",
+        "networkClean": "Блокировок в вашей сети не обнаружено",
+        "networkBlocked": "В вашей сети заблокировано сервисов: {n}"
     },
     "servers": {
         "title": "Серверы",
@@ -106,7 +109,22 @@
         "censorshipSummary": "Доступно {ok} из {total}",
         "censorshipReachable": "Доступен",
         "censorshipBlocked": "Заблокирован",
-        "censorshipChecking": "Проверяю…"
+        "censorshipChecking": "Проверяю…",
+        "freedomTitle": "Карта свободы",
+        "freedomEntry": "Что заблокировано в вашей сети прямо сейчас",
+        "freedomIntro": "По данным OONI из {country} · {asn} за последнюю неделю.",
+        "freedomDetecting": "Определяю вашу сеть…",
+        "freedomAsnUnknown": "сеть неизвестна",
+        "freedomSummary": "Заблокировано {blocked} из {total} сервисов",
+        "freedomLookback": "За последние {days} дн.",
+        "freedomMeasurements": "Измерений: {n}",
+        "freedomReachable": "Доступен",
+        "freedomDegraded": "С перебоями",
+        "freedomBlocked": "Заблокирован",
+        "freedomUnknown": "Данных мало",
+        "freedomRefresh": "Перепроверить",
+        "freedomRunning": "Проверяю…",
+        "freedomAttribution": "По данным OONI · ooni.org"
     },
     "common": {
         "back": "Назад",

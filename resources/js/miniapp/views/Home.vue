@@ -9,7 +9,6 @@ import { hoursUntilExpiry, daysUntilExpiry, isTrialing, isExpired, activeSubscri
 
 import ConnectHero from '../components/ConnectHero.vue';
 import OnboardingTour from '../components/OnboardingTour.vue';
-import UpgradeBanner from '../components/billing/UpgradeBanner.vue';
 import PaywallSheet from '../components/billing/PaywallSheet.vue';
 import Skeleton from '../components/Skeleton.vue';
 import { SectionLabel, ListGroup, ListRow } from '../components/ui/index.js';
@@ -35,20 +34,6 @@ const subLabel = computed(() => {
     if (!sub.value || expired.value) return t('billing.noActive');
     if (trialing.value) return t('billing.trialActive', { days: days.value });
     return t('billing.proActive', { days: days.value });
-});
-
-const banner = computed(() => {
-    if (expired.value) {
-        return { title: t('billing.expiredBanner'), severity: 'danger', cta: t('billing.renew') };
-    }
-    if (trialing.value && hoursUntilExpiry() <= 48) {
-        return {
-            title: t('billing.trialEndingBanner', { hours: hoursUntilExpiry() }),
-            severity: 'warn',
-            cta: t('billing.upgrade'),
-        };
-    }
-    return null;
 });
 
 const totalUp = computed(() => store.profile?.totalTraffic?.up || 0);
@@ -84,14 +69,6 @@ onMounted(() => {
 
 <template>
     <div class="home">
-        <UpgradeBanner
-            v-if="banner"
-            :title="banner.title"
-            :severity="banner.severity"
-            :cta="banner.cta"
-            @cta="openPaywall"
-        />
-
         <Skeleton v-if="!store.servers.length" :height="220" />
         <ConnectHero
             v-else

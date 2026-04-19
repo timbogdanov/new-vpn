@@ -15,8 +15,6 @@ import QrCode from '../components/QrCode.vue';
 import {
     ListGroup, ListRow, IconButton, Button, Sheet, EmptyState,
 } from '../components/ui/index.js';
-import UpgradeBanner from '../components/billing/UpgradeBanner.vue';
-import PaywallSheet from '../components/billing/PaywallSheet.vue';
 import { isTrialing, isExpired, hoursUntilExpiry } from '../billing.js';
 
 const route = useRoute();
@@ -120,22 +118,6 @@ async function openHelp() {
     });
 }
 
-const paywallOpen = ref(false);
-function openPaywall() { hap.select(); paywallOpen.value = true; }
-
-const banner = computed(() => {
-    if (isExpired()) {
-        return { title: t('billing.expiredBanner'), severity: 'danger', cta: t('billing.renew') };
-    }
-    if (isTrialing() && hoursUntilExpiry() <= 48) {
-        return {
-            title: t('billing.trialEndingBanner', { hours: hoursUntilExpiry() }),
-            severity: 'warn',
-            cta: t('billing.upgrade'),
-        };
-    }
-    return null;
-});
 </script>
 
 <template>
@@ -144,14 +126,6 @@ const banner = computed(() => {
     </div>
 
     <div v-else class="detail">
-        <UpgradeBanner
-            v-if="banner"
-            :title="banner.title"
-            :severity="banner.severity"
-            :cta="banner.cta"
-            @cta="openPaywall"
-        />
-
         <ServerStatusHero
             :server="server"
             :ping="server.pingMs"
@@ -234,8 +208,6 @@ const banner = computed(() => {
                 <p class="qr-sheet__url">{{ subscriptionUrl }}</p>
             </div>
         </Sheet>
-
-        <PaywallSheet v-model:open="paywallOpen" />
     </div>
 </template>
 

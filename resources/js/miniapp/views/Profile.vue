@@ -15,7 +15,7 @@ import PaywallSheet from '../components/billing/PaywallSheet.vue';
 import Sheet from '../components/ui/Sheet.vue';
 
 import {
-    Card, ListGroup, ListRow, IconButton, SegmentedControl,
+    Card, ListGroup, ListRow, IconButton,
 } from '../components/ui/index.js';
 
 const loading = ref(false);
@@ -166,15 +166,26 @@ onMounted(load);
 
         <section class="profile__section">
             <div class="profile__label">{{ t('profile.language') }}</div>
-            <SegmentedControl
-                :model-value="store.user?.languageCode || 'en'"
-                :options="[
-                    { value: 'en', label: 'English' },
-                    { value: 'ru', label: 'Русский' },
-                ]"
-                :aria-label="t('profile.language')"
-                @update:model-value="setLang"
-            />
+            <ListGroup>
+                <ListRow
+                    v-for="opt in [
+                        { value: 'en', label: 'English' },
+                        { value: 'ru', label: 'Русский' },
+                    ]"
+                    :key="opt.value"
+                    :title="opt.label"
+                    @click="setLang(opt.value)"
+                >
+                    <template #trailing>
+                        <Check
+                            v-if="(store.user?.languageCode || 'en') === opt.value"
+                            :size="18"
+                            :stroke-width="2"
+                            class="profile__lang-check"
+                        />
+                    </template>
+                </ListRow>
+            </ListGroup>
         </section>
 
         <section v-if="store.config?.supportUrl" class="profile__section">
@@ -270,6 +281,10 @@ onMounted(load);
     font-size: 12px;
     line-height: 16px;
     color: var(--color-text-hint);
+}
+
+.profile__lang-check {
+    color: var(--color-accent);
 }
 
 .profile__history-head {

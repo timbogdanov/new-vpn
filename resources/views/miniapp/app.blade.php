@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0B0D12" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
 
     <title>{{ config('app.name') }}</title>

@@ -8,7 +8,7 @@ import { hap } from '../telegram.js';
 
 import ServerRow from '../components/ServerRow.vue';
 import Skeleton from '../components/Skeleton.vue';
-import { SegmentedControl, ListGroup, EmptyState, Button } from '../components/ui/index.js';
+import { ListGroup, EmptyState, Button } from '../components/ui/index.js';
 import { useBrowserPing } from '../composables/useBrowserPing.js';
 
 const router = useRouter();
@@ -26,6 +26,12 @@ const sortedAvailable = computed(() => {
         if (key === 'load') return (a.loadPercent ?? 100) - (b.loadPercent ?? 100);
         return 0;
     });
+});
+
+const primary = computed(() => sortedAvailable.value[0] || null);
+const upcoming = computed(() => {
+    const rest = sortedAvailable.value.slice(1).map((s) => ({ ...s, isComingSoon: true }));
+    return [...rest, ...comingSoon.value];
 });
 
 function go(server) {
@@ -49,27 +55,12 @@ onMounted(async () => {
 
 <template>
     <div class="list">
-        <p class="list__subtitle">{{ t('servers.subtitle') }}</p>
-
-        <div class="list__sort">
-            <SegmentedControl
-                :model-value="sort"
-                :options="[
-                    { value: 'recommended', label: t('servers.sortRecommended') },
-                    { value: 'ping',        label: t('servers.sortPing') },
-                    { value: 'load',        label: t('servers.sortLoad') },
-                ]"
-                :aria-label="t('servers.title')"
-                @update:model-value="onSort"
-            />
-        </div>
-
         <div v-if="!store.servers.length" class="list__skel">
             <Skeleton v-for="i in 5" :key="i" :height="64" />
         </div>
 
         <EmptyState
-            v-else-if="!sortedAvailable.length && !comingSoon.length"
+            v-else-if="!primary && !upcoming.length"
             :title="t('servers.empty')"
             :body="t('servers.subtitle')"
         >
@@ -79,21 +70,19 @@ onMounted(async () => {
         </EmptyState>
 
         <template v-else>
-            <ListGroup v-if="sortedAvailable.length">
+            <ListGroup v-if="primary">
                 <ServerRow
-                    v-for="s in sortedAvailable"
-                    :key="s.slug"
-                    :server="s"
-                    :ping-override="pings[s.slug] ?? null"
+                    :server="primary"
+                    :ping-override="pings[primary.slug] ?? null"
                     @click="go"
                 />
             </ListGroup>
 
-            <section v-if="comingSoon.length" class="list__section">
+            <section v-if="upcoming.length" class="list__section">
                 <div class="list__section-label">{{ t('servers.comingSoon') }}</div>
                 <ListGroup>
                     <ServerRow
-                        v-for="s in comingSoon"
+                        v-for="s in upcoming"
                         :key="s.slug"
                         :server="s"
                         @click="go"
@@ -110,17 +99,6 @@ onMounted(async () => {
     flex-direction: column;
     gap: 16px;
     padding-bottom: 32px;
-}
-
-.list__subtitle {
-    font-size: 13px;
-    line-height: 18px;
-    color: var(--color-text-subtle);
-    margin: 0;
-}
-
-.list__sort {
-    padding: 4px 0;
 }
 
 .list__skel {

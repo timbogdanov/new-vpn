@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
+import { User } from 'lucide-vue-next';
 
 import { store } from '../store.js';
 import { t } from '../i18n.js';
@@ -43,8 +44,13 @@ function dismissError() {
                 <p class="shell-header__eyebrow">{{ t('home.subtitle') }}</p>
                 <h1 class="shell-header__title font-display">{{ greeting }}</h1>
             </div>
-            <button type="button" class="shell-header__link" @click="goProfile">
-                {{ t('home.account') }}
+            <button
+                type="button"
+                class="shell-header__icon-btn"
+                :aria-label="t('home.account')"
+                @click="goProfile"
+            >
+                <User :size="22" :stroke-width="1.75" />
             </button>
         </header>
 
@@ -138,18 +144,23 @@ function dismissError() {
     color: var(--color-text-strong);
     flex: 1 1 auto;
 }
-.shell-header__link {
+.shell-header__icon-btn {
     flex-shrink: 0;
     align-self: flex-end;
-    padding: 6px 2px;
-    font-size: 13px;
-    line-height: 18px;
-    font-weight: 500;
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-pill);
     color: var(--color-text-subtle);
-    transition: color var(--duration-fast) var(--ease-standard);
+    transition:
+        color var(--duration-fast) var(--ease-standard),
+        background var(--duration-fast) var(--ease-standard);
 }
-.shell-header__link:active {
+.shell-header__icon-btn:active {
     color: var(--color-text-strong);
+    background: var(--color-surface-raised);
 }
 
 .shell-main {

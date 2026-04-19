@@ -108,9 +108,18 @@ function onBannerOk() {
 
 async function onBannerOff() {
     hap.select();
+    // Optimistic: flip both local fields first so the banner closes even if
+    // the API call fails (e.g. migration column missing in prod).
+    if (store.user) {
+        store.user.contributeSignals = false;
+        store.user.contributeAckedAt = store.user.contributeAckedAt || new Date().toISOString();
+    }
     try {
         await updateProfile({ contributeSignals: false });
-    } catch (_) { /* store handles */ }
+    } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('onBannerOff failed', e);
+    }
 }
 
 const paywallOpen = ref(false);

@@ -116,12 +116,25 @@ export async function updateProfile(patch) {
 }
 
 export async function ackContributeBanner() {
+    // Optimistic: flip the local flag immediately so the computed that drives
+    // the banner's :open becomes false on the next tick. If the API call
+    // fails (e.g. ooni_contribute_acked_at column doesn't exist because the
+    // migration hasn't run), the banner will reappear on next full reload —
+    // but at least the user can dismiss it now.
+    if (store.user && !store.user.contributeAckedAt) {
+        store.user.contributeAckedAt = new Date().toISOString();
+    }
     try {
         const { data } = await api.patch('/profile', { contributeAcked: true });
-        if (store.user) {
-            store.user.contributeAckedAt = data.user?.contributeAckedAt || new Date().toISOString();
+        if (store.user && data.user?.contributeAckedAt) {
+            store.user.contributeAckedAt = data.user.contributeAckedAt;
         }
-    } catch (_) {}
+    } catch (e) {
+        // Log so Telescope / server logs can catch it; do NOT rollback the
+        // local ack — leaving the banner closed is better UX than re-opening.
+        // eslint-disable-next-line no-console
+        console.warn('ackContributeBanner failed', e);
+    }
 }
 
 export async function runIpCheck() {

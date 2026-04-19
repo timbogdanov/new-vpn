@@ -54,11 +54,8 @@ function fire() {
 
 function bind() {
     if (cleanup) { cleanup(); cleanup = null; }
-    const scheme = (typeof window !== 'undefined'
-        && window.Telegram?.WebApp?.colorScheme) || 'dark';
-    const color = scheme === 'light' ? '#00C853' : '#00E676';
     cleanup = MainButton.show(props.label || t('server.connect'), fire, {
-        color,
+        color: '#39FF14',
         textColor: '#0A0A0A',
     });
 }

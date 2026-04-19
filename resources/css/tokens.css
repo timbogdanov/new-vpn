@@ -5,7 +5,7 @@
    System: Quiet Premium (see DESIGN.md / plans/you-have-a-design-snazzy-whisper.md)
    - Editorial restraint on a dark neutral canvas
    - Geist (UI) + Instrument Serif (display, Latin only) + Geist Mono (numbers)
-   - Cobalt accent, used rarely
+   - Emerald-green accent, used rarely
    - No gradients. Elevation via bg contrast.
 =========================================================================== */
 
@@ -54,10 +54,10 @@
     --color-gray-8: #C7CEDC;
     --color-gray-9: #F1F3F8;
 
-    /* ---------- Accent: Cobalt (used rarely) ---------- */
-    --color-brand:          #3B5BFF;
-    --color-brand-hover:    #334FE6;
-    --color-brand-pressed:  #2A42C2;
+    /* ---------- Accent: Emerald (used rarely) ---------- */
+    --color-brand:          #10B981;
+    --color-brand-hover:    #0EA372;
+    --color-brand-pressed:  #0B8A61;
 
     /* ---------- Semantic (Telegram-bound, with brand fallbacks) ---------- */
     --color-bg:             var(--tg-theme-bg-color, var(--color-gray-0));
@@ -70,10 +70,10 @@
     --color-separator:      var(--tg-theme-section-separator-color, rgba(255, 255, 255, 0.06));
     --color-border-weak:    rgba(255, 255, 255, 0.08);
 
-    --color-accent:         var(--tg-theme-button-color, var(--color-brand));
+    --color-accent:         var(--color-brand);
     --color-accent-hover:   var(--color-brand-hover);
     --color-accent-pressed: var(--color-brand-pressed);
-    --color-accent-tint:    rgba(59, 91, 255, 0.08);
+    --color-accent-tint:    rgba(16, 185, 129, 0.08);
     --color-accent-text:    var(--tg-theme-button-text-color, #FFFFFF);
 
     --color-success:        #22C55E;
@@ -132,10 +132,10 @@
     --color-separator:      rgba(0, 0, 0, 0.08);
     --color-border-weak:    rgba(0, 0, 0, 0.10);
 
-    --color-brand:          #2D4BE6;
-    --color-brand-hover:    #243FC7;
-    --color-brand-pressed:  #1E35A8;
-    --color-accent-tint:    rgba(45, 75, 230, 0.08);
+    --color-brand:          #059669;
+    --color-brand-hover:    #047857;
+    --color-brand-pressed:  #065F46;
+    --color-accent-tint:    rgba(5, 150, 105, 0.08);
 
     --color-success:        #16A34A;
     --color-warning:        #D97706;

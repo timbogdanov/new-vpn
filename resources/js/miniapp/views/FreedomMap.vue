@@ -70,14 +70,17 @@ function labelFor(status) {
     return t('tools.freedomUnknown');
 }
 
-function unblock(svc) {
+function openDetails(svc) {
     hap.select();
-    const recommended = store.recommendedServer;
-    if (recommended) {
-        router.push(`/servers/${recommended.slug}`);
+    const url = svc.primaryUrl;
+    if (!url) {
+        // Fallback: no primary URL surfaced — bounce to servers for unblock.
+        const recommended = store.recommendedServer;
+        router.push(recommended ? `/servers/${recommended.slug}` : '/servers');
         return;
     }
-    router.push('/servers');
+    // Hash is built client-side from the URL; backend accepts ?url= directly.
+    router.push({ name: 'freedom-url-detail', params: { urlHash: svc.key }, query: { url } });
 }
 
 function refresh() {
@@ -136,9 +139,8 @@ function refresh() {
                     <ListRow
                         v-for="svc in services"
                         :key="svc.key"
-                        :chevron="svc.status === 'blocked' || svc.status === 'degraded'"
-                        :interactive="svc.status === 'blocked' || svc.status === 'degraded'"
-                        @click="(svc.status === 'blocked' || svc.status === 'degraded') ? unblock(svc) : null"
+                        chevron
+                        @click="openDetails(svc)"
                     >
                         <template #title>{{ svc.label }}</template>
                         <template #subtitle>

@@ -41,7 +41,9 @@ class OoniService
     {
         $country = strtoupper(trim($countryCode)) ?: 'XX';
         $asnKey = $asn ? strtoupper(trim($asn)) : 'NOASN';
-        $cacheKey = "ooni:summary:{$country}:{$asnKey}";
+        // v2 bump — ratio-based classifier (previously any confirmed>0 meant
+        // blocked, which false-flagged sites in non-censoring countries).
+        $cacheKey = "ooni:summary:v2:{$country}:{$asnKey}";
 
         $ttl = (int) config('ooni.cache_ttl', 3600);
 
@@ -63,7 +65,8 @@ class OoniService
     {
         $country = strtoupper(trim($countryCode)) ?: 'XX';
         $asnKey = $asn ? strtoupper(trim($asn)) : 'NOASN';
-        Cache::forget("ooni:summary:{$country}:{$asnKey}");
+        Cache::forget("ooni:summary:v2:{$country}:{$asnKey}");
+        Cache::forget("ooni:summary:{$country}:{$asnKey}"); // legacy key
         return $this->summary($country, $asn);
     }
 
@@ -132,6 +135,7 @@ class OoniService
                 okCount: $b['ok'],
                 lastChangeAt: null,
                 communityMeasurementCount: $commTotal,
+                primaryUrl: $svc['urls'][0] ?? null,
             );
         }
 
@@ -342,19 +346,25 @@ class OoniService
     public function classify(int $measurements, int $confirmed, int $anomaly): string
     {
         $min = (int) config('ooni.min_measurements', 3);
-        if ($confirmed > 0) {
-            return 'blocked';
-        }
         if ($measurements < $min) {
             return 'unknown';
         }
-        $ratio = $measurements > 0 ? $anomaly / $measurements : 0.0;
-        if ($ratio >= 0.5) {
-            return 'blocked';
-        }
-        if ($ratio >= 0.2) {
-            return 'degraded';
-        }
+
+        // Ratio-based thresholds. A single OONI probe on a misconfigured
+        // corporate or school network can set confirmed_count > 0 even in a
+        // country without state-level censorship (classic example: US
+        // Instagram has ~50 confirmations against ~20,000 clean checks). Only
+        // treat as blocked when the failure rate is meaningful.
+        $bad = $anomaly + $confirmed;
+        $badRatio       = $bad / $measurements;
+        $confirmedRatio = $confirmed / $measurements;
+
+        // Strong confirmation of state-level blocking.
+        if ($confirmedRatio >= 0.05) return 'blocked';
+        // High anomaly rate irrespective of confirmation.
+        if ($badRatio >= 0.5)        return 'blocked';
+        // Partial interference.
+        if ($badRatio >= 0.2)        return 'degraded';
         return 'reachable';
     }
 
@@ -602,7 +612,7 @@ class OoniService
         }
 
         try {
-            $responses = Http::pool(function (Pool $pool) use ($base, $timeout, $common, $url, $country, $asnNumeric, $measurementsLimit) {
+            $responses = Http::pool(function (Pool $pool) use ($base, $timeout, $common, $url, $country, $asnNumeric, $measurementsLimit, $since, $until) {
                 $requests = [];
 
                 // 0: daily timeseries (ASN-scoped when provided)
@@ -813,10 +823,15 @@ class OoniService
             }
         }
 
-        // Then worst-N globally from whatever's left, ranked blocked→degraded→
-        // unknown→reachable and by anomaly ratio within each tier.
-        $remaining = array_values($all);
-        $rank = ['blocked' => 0, 'degraded' => 1, 'unknown' => 2, 'reachable' => 3];
+        // Then worst-N globally from whatever's left. Exclude 'unknown' —
+        // those are countries with <min_measurements probes and their ratios
+        // are meaningless (a single failed check in a tiny country would
+        // otherwise sort to the top).
+        $remaining = array_values(array_filter(
+            $all,
+            fn (OoniCountryBreakdownDTO $c) => $c->status !== 'unknown',
+        ));
+        $rank = ['blocked' => 0, 'degraded' => 1, 'reachable' => 2];
         usort($remaining, function (OoniCountryBreakdownDTO $a, OoniCountryBreakdownDTO $b) use ($rank) {
             $r = ($rank[$a->status] ?? 9) <=> ($rank[$b->status] ?? 9);
             if ($r !== 0) return $r;

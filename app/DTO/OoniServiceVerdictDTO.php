@@ -14,14 +14,16 @@ readonly class OoniServiceVerdictDTO
         public int $okCount,
         public ?string $lastChangeAt, // ISO8601 or null
         public int $communityMeasurementCount = 0,
+        public ?string $primaryUrl = null,
     ) {}
 
     public function toArray(): array
     {
-        // Defensive: if a cached DTO from before communityMeasurementCount existed
-        // was unserialized, the property is not initialized (unserialize bypasses
-        // the constructor default). Read via reflection-safe isset() fallback.
-        $community = isset($this->communityMeasurementCount) ? $this->communityMeasurementCount : 0;
+        // Defensive: if a cached DTO from before communityMeasurementCount
+        // existed was unserialized, the property is not initialized
+        // (unserialize bypasses the constructor default).
+        $community   = isset($this->communityMeasurementCount) ? $this->communityMeasurementCount : 0;
+        $primaryUrl  = isset($this->primaryUrl) ? $this->primaryUrl : null;
 
         return [
             'key' => $this->key,
@@ -33,6 +35,7 @@ readonly class OoniServiceVerdictDTO
             'ok' => $this->okCount,
             'lastChangeAt' => $this->lastChangeAt,
             'communityMeasurements' => $community,
+            'primaryUrl' => $primaryUrl,
         ];
     }
 }

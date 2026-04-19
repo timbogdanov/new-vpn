@@ -5,8 +5,7 @@ import { runIpCheck, runSpeedTest, toast } from '../store.js';
 import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
 
-import Gauge from '../components/Gauge.vue';
-import { Card, Button, Chip } from '../components/ui/index.js';
+import { SectionLabel, ListGroup, ListRow, Chip } from '../components/ui/index.js';
 
 const ipLoading = ref(false);
 const ipResult = ref(null);
@@ -20,7 +19,14 @@ const ipStatus = computed(() => {
         : { tone: 'danger', label: t('tools.ipUnprotected') };
 });
 
+const ipMeta = computed(() => {
+    if (!ipResult.value) return '';
+    const loc = [ipResult.value.city, ipResult.value.country].filter(Boolean).join(', ');
+    return [ipResult.value.isp, loc].filter(Boolean).join(' · ');
+});
+
 async function checkIp() {
+    if (ipLoading.value) return;
     hap.light();
     ipLoading.value = true;
     try { ipResult.value = await runIpCheck(); }
@@ -29,72 +35,88 @@ async function checkIp() {
 }
 
 async function speed() {
+    if (speedLoading.value) return;
     hap.light();
     speedLoading.value = true;
     try { speedResult.value = await runSpeedTest(); }
     catch { toast(t('common.error'), 'error'); }
     finally { speedLoading.value = false; }
 }
+
+function fmtMbps(v) {
+    if (v == null) return '—';
+    return `${Number(v).toFixed(1)} Mbps`;
+}
+function fmtMs(v) {
+    if (v == null) return '—';
+    return `${Math.round(v)} ms`;
+}
 </script>
 
 <template>
     <div class="tools">
         <section class="tools__section">
-            <div class="tools__label">{{ t('tools.ipTitle') }}</div>
-            <Card padding="lg">
-                <div class="tools__head">
-                    <p class="tools__title">
-                        {{ ipResult ? (ipResult.isProtected ? t('tools.ipProtected') : t('tools.ipUnprotected')) : t('tools.ipTitle') }}
-                    </p>
-                    <p class="tools__desc">
-                        {{ ipResult ? (ipResult.isProtected ? t('tools.ipProtectedBody') : t('tools.ipUnprotectedBody')) : t('tools.ipUnprotectedBody') }}
-                    </p>
-                </div>
+            <SectionLabel>{{ t('tools.ipTitle') }}</SectionLabel>
+            <ListGroup>
+                <ListRow :interactive="false">
+                    <template #title>
+                        {{ ipResult
+                            ? (ipResult.isProtected ? t('tools.ipProtected') : t('tools.ipUnprotected'))
+                            : t('tools.ipTitle') }}
+                    </template>
+                    <template #subtitle>
+                        {{ ipResult
+                            ? (ipResult.isProtected ? t('tools.ipProtectedBody') : t('tools.ipUnprotectedBody'))
+                            : t('tools.ipUnprotectedBody') }}
+                    </template>
+                    <template v-if="ipStatus" #trailing>
+                        <Chip :tone="ipStatus.tone" dot>{{ ipStatus.label }}</Chip>
+                    </template>
+                </ListRow>
 
-                <div v-if="ipResult" class="tools__result">
-                    <Chip v-if="ipStatus" :tone="ipStatus.tone" dot>{{ ipStatus.label }}</Chip>
-                    <div class="tools__mono">
-                        {{ ipResult.ip }}<span v-if="ipResult.isp"> · {{ ipResult.isp }}</span>
-                    </div>
-                    <div v-if="ipResult.country || ipResult.city" class="tools__location">
-                        <template v-if="ipResult.city">{{ ipResult.city }}, </template>
-                        {{ ipResult.country || '—' }}
-                    </div>
-                </div>
+                <ListRow v-if="ipResult" :interactive="false">
+                    <template #title>
+                        <span class="tools__mono">{{ ipResult.ip }}</span>
+                    </template>
+                    <template v-if="ipMeta" #subtitle>{{ ipMeta }}</template>
+                </ListRow>
 
-                <Button variant="secondary" block :loading="ipLoading" @click="checkIp">
-                    {{ ipLoading ? t('tools.ipChecking') : t('tools.ipRun') }}
-                </Button>
-            </Card>
+                <ListRow chevron :disabled="ipLoading" @click="checkIp">
+                    <template #title>
+                        {{ ipLoading ? t('tools.ipChecking') : t('tools.ipRun') }}
+                    </template>
+                </ListRow>
+            </ListGroup>
         </section>
 
         <section class="tools__section">
-            <div class="tools__label">{{ t('tools.speedTitle') }}</div>
-            <Card padding="lg">
-                <div class="tools__head">
-                    <p class="tools__title">{{ t('tools.speedTitle') }}</p>
-                    <p class="tools__desc">{{ t('tools.speedNote') }}</p>
-                </div>
-
-                <div v-if="speedResult" class="tools__speed">
-                    <div class="tools__speed-item">
-                        <Gauge :value="speedResult.downloadMbps" :max="500" unit="Mbps" :size="96" />
-                        <div class="tools__speed-label">{{ t('tools.speedDownload') }}</div>
-                    </div>
-                    <div class="tools__speed-item">
-                        <Gauge :value="speedResult.uploadMbps" :max="500" unit="Mbps" :size="96" />
-                        <div class="tools__speed-label">{{ t('tools.speedUpload') }}</div>
-                    </div>
-                    <div class="tools__speed-item">
-                        <Gauge :value="speedResult.pingMs" :max="300" unit="ms" :size="96" />
-                        <div class="tools__speed-label">{{ t('tools.speedPing') }}</div>
-                    </div>
-                </div>
-
-                <Button variant="secondary" block :loading="speedLoading" @click="speed">
-                    {{ speedLoading ? t('tools.speedRunning') : t('tools.speedRun') }}
-                </Button>
-            </Card>
+            <SectionLabel>{{ t('tools.speedTitle') }}</SectionLabel>
+            <ListGroup>
+                <ListRow :interactive="false">
+                    <template #title>{{ t('tools.speedDownload') }}</template>
+                    <template #trailing>
+                        <span class="tools__mono">{{ fmtMbps(speedResult?.downloadMbps) }}</span>
+                    </template>
+                </ListRow>
+                <ListRow :interactive="false">
+                    <template #title>{{ t('tools.speedUpload') }}</template>
+                    <template #trailing>
+                        <span class="tools__mono">{{ fmtMbps(speedResult?.uploadMbps) }}</span>
+                    </template>
+                </ListRow>
+                <ListRow :interactive="false">
+                    <template #title>{{ t('tools.speedPing') }}</template>
+                    <template #trailing>
+                        <span class="tools__mono">{{ fmtMs(speedResult?.pingMs) }}</span>
+                    </template>
+                </ListRow>
+                <ListRow chevron :disabled="speedLoading" @click="speed">
+                    <template #title>
+                        {{ speedLoading ? t('tools.speedRunning') : t('tools.speedRun') }}
+                    </template>
+                </ListRow>
+            </ListGroup>
+            <p class="tools__hint">{{ t('tools.speedNote') }}</p>
         </section>
     </div>
 </template>
@@ -112,78 +134,22 @@ async function speed() {
     flex-direction: column;
     gap: 8px;
 }
-.tools__label {
-    font-size: 11px;
-    line-height: 14px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--color-text-hint);
-    padding: 0 16px;
-}
 
-.tools__head {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 16px;
-}
-.tools__title {
-    margin: 0;
-    font-size: 17px;
-    line-height: 24px;
-    font-weight: 500;
-    color: var(--color-text-strong);
-}
-.tools__desc {
-    margin: 0;
-    font-size: 13px;
-    line-height: 18px;
-    color: var(--color-text-subtle);
-}
-
-.tools__result {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 16px;
-    padding: 14px 16px;
-    background: var(--color-surface);
-    border-radius: var(--radius-md);
-}
 .tools__mono {
     font-family: var(--font-mono);
     font-size: 13px;
     line-height: 18px;
     color: var(--color-text-strong);
     font-variant-numeric: tabular-nums;
+    font-weight: 500;
     word-break: break-all;
 }
-.tools__location {
+
+.tools__hint {
+    margin: 0;
+    padding: 0 16px;
     font-size: 12px;
     line-height: 16px;
-    color: var(--color-text-subtle);
-}
-
-.tools__speed {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 16px;
-    justify-items: center;
-}
-.tools__speed-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-}
-.tools__speed-label {
-    font-size: 11px;
-    line-height: 14px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
     color: var(--color-text-hint);
 }
 </style>

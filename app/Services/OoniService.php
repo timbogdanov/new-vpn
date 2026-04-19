@@ -4,11 +4,13 @@ namespace App\Services;
 
 use App\DTO\OoniServiceVerdictDTO;
 use App\DTO\OoniSummaryDTO;
+use App\Models\CommunityProbeSignal;
 use Carbon\Carbon;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Queries OONI's aggregation API for per-service censorship verdicts,
@@ -21,6 +23,12 @@ use Illuminate\Support\Facades\Log;
  *   anomaly / measurements >= 0.2    => degraded       (partial interference)
  *   measurements >= min_measurements => reachable
  *   otherwise                        => unknown        (thin data)
+ *
+ * If ASN-scoped query returns thin data across the board, falls back to a
+ * country-only query so users see something instead of a wall of 'unknown'.
+ * If the community_probe_signals table holds opted-in user data, verdicts
+ * are enriched with a communityMeasurementCount and soft-upgraded from
+ * 'unknown' to 'degraded' when the community strongly disagrees.
  */
 class OoniService
 {
@@ -42,10 +50,23 @@ class OoniService
         return $summary;
     }
 
+    /**
+     * Bust the cache for (country, asn) and rebuild. Called when the user
+     * explicitly hits Re-check in the UI.
+     */
+    public function refresh(string $countryCode, ?string $asn): OoniSummaryDTO
+    {
+        $country = strtoupper(trim($countryCode)) ?: 'XX';
+        $asnKey = $asn ? strtoupper(trim($asn)) : 'NOASN';
+        Cache::forget("ooni:summary:{$country}:{$asnKey}");
+        return $this->summary($country, $asn);
+    }
+
     private function buildSummary(string $country, ?string $asn): OoniSummaryDTO
     {
         $services = (array) config('ooni.services', []);
         $lookback = (int) config('ooni.lookback_days', 7);
+        $min = (int) config('ooni.min_measurements', 3);
         $since = Carbon::now('UTC')->subDays($lookback)->toDateString();
         $until = Carbon::now('UTC')->addDay()->toDateString();
 
@@ -58,9 +79,77 @@ class OoniService
             }
         }
 
+        // Pass 1: ASN-scoped (preferred — precision beats coverage).
         $raw = $this->fetchAggregations($plan, $country, $asn, $since, $until);
+        $perService = $this->foldCounts($services, $plan, $raw);
 
-        // Fold per-URL counts into per-service verdicts.
+        // If the ASN-scoped query came back basically empty across all
+        // services, retry country-only. Users get coarser-but-populated data
+        // rather than a wall of 'unknown'.
+        $totalMeasurements = array_sum(array_map(fn ($b) => $b['m'], $perService));
+        $threshold = $min * max(count($services), 1);
+        if ($asn && $totalMeasurements < $threshold) {
+            Log::info('OONI: ASN-scoped query thin, falling back to country-only', [
+                'country' => $country,
+                'asn' => $asn,
+                'total_measurements' => $totalMeasurements,
+                'threshold' => $threshold,
+            ]);
+            $raw = $this->fetchAggregations($plan, $country, null, $since, $until);
+            $perService = $this->foldCounts($services, $plan, $raw);
+        }
+
+        // Pass 2: enrich with our own community signals (opt-in users only).
+        $community = $this->communityCountsByService($country, $asn, $lookback);
+
+        $verdicts = [];
+        foreach ($services as $svc) {
+            $b = $perService[$svc['key']];
+            $status = $this->classify($b['m'], $b['conf'], $b['anom']);
+            $commBlocked = $community[$svc['key']]['blocked'] ?? 0;
+            $commReach = $community[$svc['key']]['reachable'] ?? 0;
+            $commTotal = $commBlocked + $commReach;
+
+            // Soft upgrade: if OONI says "unknown" but community strongly agrees
+            // that something is off, surface that as 'degraded' (not 'blocked'
+            // outright — community signals are noisier than OONI's test list).
+            if ($status === 'unknown' && $commTotal >= $min && ($commBlocked / max($commTotal, 1)) >= 0.5) {
+                $status = 'degraded';
+            }
+
+            $verdicts[] = new OoniServiceVerdictDTO(
+                key: $svc['key'],
+                label: $svc['label'],
+                status: $status,
+                measurementCount: $b['m'],
+                confirmedCount: $b['conf'],
+                anomalyCount: $b['anom'],
+                okCount: $b['ok'],
+                lastChangeAt: null,
+                communityMeasurementCount: $commTotal,
+            );
+        }
+
+        return new OoniSummaryDTO(
+            countryCode: $country,
+            asn: $asn,
+            asnName: null,
+            lookbackDays: $lookback,
+            services: $verdicts,
+            freshAt: Carbon::now(),
+        );
+    }
+
+    /**
+     * Fold per-URL counts from $raw into per-service totals.
+     *
+     * @param  array<int, array>  $services
+     * @param  array<int, array{key:string,label:string,url:string}>  $plan
+     * @param  array<int, ?array>  $raw
+     * @return array<string, array{label:string,m:int,ok:int,conf:int,anom:int}>
+     */
+    private function foldCounts(array $services, array $plan, array $raw): array
+    {
         $perService = [];
         foreach ($services as $svc) {
             $perService[$svc['key']] = [
@@ -74,36 +163,13 @@ class OoniService
                 continue;
             }
             $bucket = &$perService[$row['key']];
-            $bucket['m']    += $counts['measurement_count'] ?? 0;
-            $bucket['ok']   += $counts['ok_count']          ?? 0;
-            $bucket['conf'] += $counts['confirmed_count']   ?? 0;
-            $bucket['anom'] += $counts['anomaly_count']     ?? 0;
+            $bucket['m']    += (int) ($counts['measurement_count'] ?? 0);
+            $bucket['ok']   += (int) ($counts['ok_count']          ?? 0);
+            $bucket['conf'] += (int) ($counts['confirmed_count']   ?? 0);
+            $bucket['anom'] += (int) ($counts['anomaly_count']     ?? 0);
             unset($bucket);
         }
-
-        $verdicts = [];
-        foreach ($services as $svc) {
-            $b = $perService[$svc['key']];
-            $verdicts[] = new OoniServiceVerdictDTO(
-                key: $svc['key'],
-                label: $svc['label'],
-                status: $this->classify($b['m'], $b['conf'], $b['anom']),
-                measurementCount: $b['m'],
-                confirmedCount: $b['conf'],
-                anomalyCount: $b['anom'],
-                okCount: $b['ok'],
-                lastChangeAt: null, // reserved for phase 2 (watchlist diffs)
-            );
-        }
-
-        return new OoniSummaryDTO(
-            countryCode: $country,
-            asn: $asn,
-            asnName: null,
-            lookbackDays: $lookback,
-            services: $verdicts,
-            freshAt: Carbon::now(),
-        );
+        return $perService;
     }
 
     /**
@@ -122,7 +188,8 @@ class OoniService
             'until'     => $until,
         ];
         if ($asn) {
-            $params['probe_asn'] = $asn;
+            // OONI wants the numeric part only. ip-api.com hands back `AS25513`.
+            $params['probe_asn'] = preg_replace('/^AS/i', '', $asn);
         }
 
         try {
@@ -140,6 +207,7 @@ class OoniService
         }
 
         $out = [];
+        $emptyCount = 0;
         foreach ($responses as $i => $resp) {
             if ($resp instanceof \Throwable) {
                 Log::info('OONI: single-URL fetch failed', [
@@ -150,11 +218,27 @@ class OoniService
                 continue;
             }
             if (!$resp->successful()) {
+                Log::info('OONI: HTTP not successful', [
+                    'url' => $plan[$i]['url'] ?? null,
+                    'status' => $resp->status(),
+                ]);
                 $out[$i] = null;
                 continue;
             }
             $payload = $resp->json();
-            $out[$i] = $this->extractCounts($payload);
+            $counts = $this->extractCounts($payload);
+            $out[$i] = $counts;
+            if (!$counts || (int) ($counts['measurement_count'] ?? 0) === 0) {
+                $emptyCount++;
+            }
+        }
+        if ($emptyCount === count($plan) && count($plan) > 0) {
+            Log::info('OONI: all URLs returned zero measurements', [
+                'country' => $country,
+                'asn' => $asn,
+                'since' => $since,
+                'until' => $until,
+            ]);
         }
         return $out;
     }
@@ -168,15 +252,45 @@ class OoniService
         if (!is_array($payload)) {
             return null;
         }
-        // Shape 1: { v: 1, dimension_count: 0, result: [ { measurement_count, ok_count, ... } ] }
         if (isset($payload['result'][0]) && is_array($payload['result'][0])) {
             return $payload['result'][0];
         }
-        // Shape 2: top-level counts
         if (isset($payload['measurement_count'])) {
             return $payload;
         }
         return null;
+    }
+
+    /**
+     * Counts of opted-in community probe results per service for the
+     * current lookback window. Returns empty map if the table doesn't
+     * exist yet (migration not run) — keeps service resilient.
+     *
+     * @return array<string, array{blocked:int,reachable:int}>
+     */
+    private function communityCountsByService(string $country, ?string $asn, int $lookbackDays): array
+    {
+        if (!Schema::hasTable('community_probe_signals')) {
+            return [];
+        }
+
+        $since = Carbon::now('UTC')->subDays($lookbackDays);
+        $q = CommunityProbeSignal::query()
+            ->where('country_code', $country)
+            ->where('observed_at', '>=', $since);
+        if ($asn) {
+            $q->where('asn', strtoupper($asn));
+        }
+        $rows = $q->selectRaw('service_key, result, COUNT(*) as n')
+            ->groupBy('service_key', 'result')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[$r->service_key] ??= ['blocked' => 0, 'reachable' => 0];
+            $out[$r->service_key][$r->result] = (int) $r->n;
+        }
+        return $out;
     }
 
     private function classify(int $measurements, int $confirmed, int $anomaly): string

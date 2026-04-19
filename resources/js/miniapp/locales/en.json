@@ -71,7 +71,14 @@
         "language": "Language",
         "support": "Support",
         "logout": "Close",
-        "langSwitched": "Language switched"
+        "langSwitched": "Language switched",
+        "contributeTitle": "Contribute",
+        "contributeRow": "Share anonymous probe signals",
+        "contributeBodyOn": "On — your probe results help flag new blocks for others.",
+        "contributeBodyOff": "Help flag new blocks for other users.",
+        "contributeHint": "Only URL, country, ASN and pass/fail are sent. No personal data, ever.",
+        "contributeOn": "On",
+        "contributeOff": "Off"
     },
     "tools": {
         "title": "Tools",
@@ -124,7 +131,11 @@
         "freedomUnknown": "Unknown",
         "freedomRefresh": "Re-check",
         "freedomRunning": "Checking…",
-        "freedomAttribution": "Powered by OONI · ooni.org"
+        "freedomAttribution": "Powered by OONI · ooni.org",
+        "freedomUnknownSub": "No recent OONI data for your network",
+        "freedomCommunityReports": "{n} community reports",
+        "freedomWatch": "Watch",
+        "freedomWatching": "Watching"
     },
     "common": {
         "back": "Back",

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { store, fetchOoniSummary } from '../store.js';
+import { store, fetchOoniSummary, fetchOoniWatchlist, toggleOoniWatch } from '../store.js';
 import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
 
@@ -18,7 +18,20 @@ async function load({ force = false } = {}) {
     catch (e) { err.value = e?.response?.data?.message || e?.message || 'load_failed'; }
 }
 
-onMounted(() => load());
+onMounted(() => {
+    load();
+    fetchOoniWatchlist();
+});
+
+const watchedSet = computed(() => new Set(store.ooniWatchlist || []));
+function isWatched(key) { return watchedSet.value.has(key); }
+
+async function onToggleWatch(svc, e) {
+    e?.stopPropagation();
+    hap.select();
+    try { await toggleOoniWatch(svc.key); }
+    catch (_) { /* store handles rollback */ }
+}
 
 const summary = computed(() => store.ooni);
 const loading = computed(() => store.ooniLoading);
@@ -116,10 +129,27 @@ function refresh() {
                         @click="(svc.status === 'blocked' || svc.status === 'degraded') ? unblock(svc) : null"
                     >
                         <template #title>{{ svc.label }}</template>
-                        <template v-if="svc.measurements" #subtitle>
-                            {{ t('tools.freedomMeasurements', { n: svc.measurements }) }}
+                        <template #subtitle>
+                            <span v-if="svc.status === 'unknown' && !svc.communityMeasurements">
+                                {{ t('tools.freedomUnknownSub') }}
+                            </span>
+                            <span v-else-if="svc.communityMeasurements">
+                                {{ t('tools.freedomCommunityReports', { n: svc.communityMeasurements }) }}
+                            </span>
+                            <span v-else-if="svc.measurements">
+                                {{ t('tools.freedomMeasurements', { n: svc.measurements }) }}
+                            </span>
                         </template>
                         <template #trailing>
+                            <button
+                                type="button"
+                                class="freedom__watch"
+                                :class="{ 'freedom__watch--on': isWatched(svc.key) }"
+                                :aria-pressed="isWatched(svc.key)"
+                                @click="onToggleWatch(svc, $event)"
+                            >
+                                {{ isWatched(svc.key) ? t('tools.freedomWatching') : t('tools.freedomWatch') }}
+                            </button>
                             <Chip :tone="toneFor(svc.status)" dot>
                                 {{ labelFor(svc.status) }}
                             </Chip>
@@ -177,6 +207,26 @@ function refresh() {
     font-size: 12px;
     line-height: 16px;
     color: var(--color-danger);
+}
+
+.freedom__watch {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-text-subtle) 10%, transparent);
+    color: var(--color-text-subtle);
+    transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+.freedom__watch--on {
+    background: var(--color-accent-tint);
+    color: var(--color-accent);
+}
+.freedom__watch:active {
+    background: color-mix(in srgb, var(--color-text-subtle) 20%, transparent);
 }
 
 .freedom__attribution {

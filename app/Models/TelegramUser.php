@@ -27,6 +27,11 @@ class TelegramUser extends Model
         'trial_used_at',
         'onboarded_at',
         'admin_notes',
+        'ooni_watchlist',
+        'ooni_watchlist_snapshot',
+        'ooni_contribute',
+        'ooni_last_country',
+        'ooni_last_asn',
     ];
 
     protected function casts(): array
@@ -36,6 +41,9 @@ class TelegramUser extends Model
             'last_active_at' => 'datetime',
             'trial_used_at' => 'datetime',
             'onboarded_at' => 'datetime',
+            'ooni_watchlist' => 'array',
+            'ooni_watchlist_snapshot' => 'array',
+            'ooni_contribute' => 'boolean',
         ];
     }
 

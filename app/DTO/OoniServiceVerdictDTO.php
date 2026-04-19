@@ -13,6 +13,7 @@ readonly class OoniServiceVerdictDTO
         public int $anomalyCount,
         public int $okCount,
         public ?string $lastChangeAt, // ISO8601 or null
+        public int $communityMeasurementCount = 0,
     ) {}
 
     public function toArray(): array
@@ -26,6 +27,7 @@ readonly class OoniServiceVerdictDTO
             'anomaly' => $this->anomalyCount,
             'ok' => $this->okCount,
             'lastChangeAt' => $this->lastChangeAt,
+            'communityMeasurements' => $this->communityMeasurementCount,
         ];
     }
 }

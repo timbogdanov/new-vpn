@@ -3,21 +3,22 @@ import { computed, onMounted, ref } from 'vue';
 import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
 import { probeReachability } from '../composables/useProbe.js';
+import { store, contributeSignals, fetchOoniSummary } from '../store.js';
 import { SectionLabel, ListGroup, ListRow, Chip } from '../components/ui/index.js';
 
 const DOMAINS = [
-    'instagram.com',
-    'youtube.com',
-    'x.com',
-    'bbc.com',
-    'linkedin.com',
-    'signal.org',
-    'meduza.io',
-    'wikipedia.org',
+    { domain: 'instagram.com', key: 'instagram' },
+    { domain: 'youtube.com',   key: 'youtube' },
+    { domain: 'x.com',         key: 'x' },
+    { domain: 'bbc.com',       key: 'bbc' },
+    { domain: 'linkedin.com',  key: 'linkedin' },
+    { domain: 'signal.org',    key: 'signal' },
+    { domain: 'meduza.io',     key: 'meduza' },
+    { domain: 'wikipedia.org', key: 'wikipedia' },
 ];
 
 const results = ref(
-    DOMAINS.reduce((acc, d) => { acc[d] = 'checking'; return acc; }, {}),
+    DOMAINS.reduce((acc, d) => { acc[d.domain] = 'checking'; return acc; }, {}),
 );
 const running = ref(false);
 
@@ -47,14 +48,30 @@ async function runAll() {
     if (running.value) return;
     running.value = true;
     hap.light();
-    for (const d of DOMAINS) results.value[d] = 'checking';
-    await Promise.all(
+    for (const d of DOMAINS) results.value[d.domain] = 'checking';
+    const probed = await Promise.all(
         DOMAINS.map(async (d) => {
-            const state = await probeReachability(`https://${d}/favicon.ico`, 5000);
-            results.value[d] = state;
+            const url = `https://${d.domain}/favicon.ico`;
+            const state = await probeReachability(url, 5000);
+            results.value[d.domain] = state;
+            return { serviceKey: d.key, url, result: state };
         }),
     );
     running.value = false;
+
+    // Voluntary contribute-back. Requires user opt-in AND a known country.
+    if (store.user?.contributeSignals) {
+        if (!store.ooni) { try { await fetchOoniSummary(); } catch (_) {} }
+        const country = store.ooni?.countryCode;
+        const asn = store.ooni?.asn || null;
+        if (country) {
+            const observedAt = new Date().toISOString();
+            const signals = probed
+                .filter((p) => p.result === 'reachable' || p.result === 'blocked')
+                .map((p) => ({ ...p, observedAt }));
+            if (signals.length) contributeSignals({ country, asn, signals });
+        }
+    }
 }
 
 onMounted(runAll);
@@ -82,15 +99,15 @@ onMounted(runAll);
 
                 <ListRow
                     v-for="d in DOMAINS"
-                    :key="d"
+                    :key="d.domain"
                     :interactive="false"
                 >
                     <template #title>
-                        <span class="probe__domain">{{ d }}</span>
+                        <span class="probe__domain">{{ d.domain }}</span>
                     </template>
                     <template #trailing>
-                        <Chip :tone="toneFor(results[d])" dot>
-                            {{ labelFor(results[d]) }}
+                        <Chip :tone="toneFor(results[d.domain])" dot>
+                            {{ labelFor(results[d.domain]) }}
                         </Chip>
                     </template>
                 </ListRow>

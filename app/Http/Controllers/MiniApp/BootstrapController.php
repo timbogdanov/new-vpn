@@ -31,6 +31,8 @@ class BootstrapController extends Controller
                 'memberSince' => $user->created_at?->toIso8601String(),
                 'subToken' => $user->getOrGenerateSubToken(),
                 'onboardedAt' => $user->onboarded_at?->toIso8601String(),
+                'contributeSignals' => (bool) $user->ooni_contribute,
+                'ooniWatchlist' => (array) ($user->ooni_watchlist ?? []),
             ],
             'servers' => $servers,
             'config' => [

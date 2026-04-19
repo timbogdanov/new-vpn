@@ -88,7 +88,26 @@ class ToolsController extends Controller
             ], 502);
         }
 
-        $summary = $ooni->summary($country, $asn);
+        // Persist last-seen network on the user so the DiffOoniWatchlists
+        // scheduler knows where to query on their behalf.
+        $user = $request->user();
+        if ($user) {
+            $dirty = false;
+            if ($user->ooni_last_country !== $country) {
+                $user->ooni_last_country = $country;
+                $dirty = true;
+            }
+            if ($asn && $user->ooni_last_asn !== $asn) {
+                $user->ooni_last_asn = $asn;
+                $dirty = true;
+            }
+            if ($dirty) {
+                $user->save();
+            }
+        }
+
+        $force = $request->boolean('force');
+        $summary = $force ? $ooni->refresh($country, $asn) : $ooni->summary($country, $asn);
         $payload = $summary->toArray();
         $payload['asnName'] = $asnName ?: $payload['asnName'];
 

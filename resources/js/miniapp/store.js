@@ -19,6 +19,7 @@ export const store = reactive({
 
     ooni: null,
     ooniLoading: false,
+    ooniWatchlist: [],
 
     get availableServers() {
         return this.servers.filter((s) => !s.isComingSoon);
@@ -44,6 +45,7 @@ export async function bootstrap() {
         store.servers = data.servers || [];
         store.config = data.config || {};
         store.subscription = data.subscription || null;
+        store.ooniWatchlist = Array.isArray(data.user?.ooniWatchlist) ? data.user.ooniWatchlist : [];
         store.ready = true;
     } catch (e) {
         store.error = describeError(e);
@@ -109,13 +111,51 @@ export async function runSpeedTest() {
     return data.result;
 }
 
+export async function fetchOoniWatchlist() {
+    try {
+        const { data } = await api.get('/ooni/watchlist');
+        store.ooniWatchlist = Array.isArray(data?.services) ? data.services : [];
+    } catch (_) { /* ignore */ }
+    return store.ooniWatchlist;
+}
+
+export async function toggleOoniWatch(serviceKey) {
+    if (!serviceKey) return;
+    const cur = Array.isArray(store.ooniWatchlist) ? store.ooniWatchlist : [];
+    const has = cur.includes(serviceKey);
+    const next = has ? cur.filter((k) => k !== serviceKey) : [...cur, serviceKey];
+    // Optimistic update
+    store.ooniWatchlist = next;
+    try {
+        const { data } = await api.put('/ooni/watchlist', { services: next });
+        if (Array.isArray(data?.services)) {
+            store.ooniWatchlist = data.services;
+        }
+    } catch (e) {
+        // Rollback on failure
+        store.ooniWatchlist = cur;
+        throw e;
+    }
+    return store.ooniWatchlist;
+}
+
+export async function contributeSignals({ country, asn = null, signals }) {
+    if (!store.user?.contributeSignals) return;
+    if (!country || !Array.isArray(signals) || !signals.length) return;
+    try {
+        await api.post('/ooni/contribute', { country, asn, signals });
+    } catch (_) { /* fire-and-forget */ }
+}
+
 export async function fetchOoniSummary({ force = false } = {}) {
     if (!force && store.ooni && (Date.now() - (store.ooni._fetchedAt || 0) < 15 * 60_000)) {
         return store.ooni;
     }
     store.ooniLoading = true;
     try {
-        const { data } = await api.get('/tools/ooni-summary');
+        const { data } = await api.get('/tools/ooni-summary', {
+            params: force ? { force: 1 } : {},
+        });
         store.ooni = { ...data.result, _fetchedAt: Date.now() };
         return store.ooni;
     } catch (e) {

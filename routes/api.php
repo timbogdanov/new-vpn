@@ -3,6 +3,8 @@
 use App\Http\Controllers\MiniApp\AnnouncementsController;
 use App\Http\Controllers\MiniApp\BillingController;
 use App\Http\Controllers\MiniApp\BootstrapController;
+use App\Http\Controllers\MiniApp\OoniContributeController;
+use App\Http\Controllers\MiniApp\OoniWatchlistController;
 use App\Http\Controllers\MiniApp\ProfileController;
 use App\Http\Controllers\MiniApp\ServerController;
 use App\Http\Controllers\MiniApp\ToolsController;
@@ -22,6 +24,10 @@ Route::prefix('api/miniapp')
         Route::post('/tools/ip-check', [ToolsController::class, 'ipCheck']);
         Route::post('/tools/speed-test', [ToolsController::class, 'speedTest']);
         Route::get('/tools/ooni-summary', [ToolsController::class, 'ooniSummary']);
+
+        Route::get('/ooni/watchlist', [OoniWatchlistController::class, 'show']);
+        Route::put('/ooni/watchlist', [OoniWatchlistController::class, 'update']);
+        Route::post('/ooni/contribute', [OoniContributeController::class, 'store'])->middleware('throttle:60,1');
 
         Route::get('/billing/plans', [BillingController::class, 'plans']);
         Route::post('/billing/invoice', [BillingController::class, 'invoice'])->middleware('throttle:20,1');

@@ -71,7 +71,14 @@
         "language": "Язык",
         "support": "Поддержка",
         "logout": "Закрыть",
-        "langSwitched": "Язык переключён"
+        "langSwitched": "Язык переключён",
+        "contributeTitle": "Вклад в сообщество",
+        "contributeRow": "Делиться анонимными проверками",
+        "contributeBodyOn": "Включено — ваши проверки помогают замечать новые блокировки.",
+        "contributeBodyOff": "Помогите замечать новые блокировки для других пользователей.",
+        "contributeHint": "Отправляем только URL, страну, ASN и результат доступности. Никаких личных данных.",
+        "contributeOn": "Вкл",
+        "contributeOff": "Выкл"
     },
     "tools": {
         "title": "Инструменты",
@@ -124,7 +131,11 @@
         "freedomUnknown": "Данных мало",
         "freedomRefresh": "Перепроверить",
         "freedomRunning": "Проверяю…",
-        "freedomAttribution": "По данным OONI · ooni.org"
+        "freedomAttribution": "По данным OONI · ooni.org",
+        "freedomUnknownSub": "Свежих данных OONI для вашей сети нет",
+        "freedomCommunityReports": "Сообщений от сообщества: {n}",
+        "freedomWatch": "Следить",
+        "freedomWatching": "Слежу"
     },
     "common": {
         "back": "Назад",

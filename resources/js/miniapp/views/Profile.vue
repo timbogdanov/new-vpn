@@ -75,6 +75,19 @@ function openSupport() {
     if (url) openExternal(url);
 }
 
+async function toggleContribute() {
+    hap.select();
+    const next = !store.user?.contributeSignals;
+    try {
+        const data = await updateProfile({ contributeSignals: next });
+        if (store.user && data?.user) {
+            store.user.contributeSignals = !!data.user.contributeSignals;
+        }
+    } catch (_) {
+        // updateProfile swallows / toasts via store; no extra work.
+    }
+}
+
 const paywallOpen = ref(false);
 const historyOpen = ref(false);
 function openPaywall() { hap.select(); paywallOpen.value = true; }
@@ -188,6 +201,26 @@ onMounted(load);
             </ListGroup>
         </section>
 
+        <section class="profile__section">
+            <div class="profile__label">{{ t('profile.contributeTitle') }}</div>
+            <ListGroup>
+                <ListRow @click="toggleContribute">
+                    <template #title>{{ t('profile.contributeRow') }}</template>
+                    <template #subtitle>
+                        {{ store.user?.contributeSignals
+                            ? t('profile.contributeBodyOn')
+                            : t('profile.contributeBodyOff') }}
+                    </template>
+                    <template #trailing>
+                        <span class="profile__toggle" :class="{ 'profile__toggle--on': store.user?.contributeSignals }">
+                            {{ store.user?.contributeSignals ? t('profile.contributeOn') : t('profile.contributeOff') }}
+                        </span>
+                    </template>
+                </ListRow>
+            </ListGroup>
+            <p class="profile__hint">{{ t('profile.contributeHint') }}</p>
+        </section>
+
         <section v-if="store.config?.supportUrl" class="profile__section">
             <ListGroup>
                 <ListRow :title="t('profile.support')" chevron @click="openSupport" />
@@ -287,6 +320,24 @@ onMounted(load);
 }
 
 .profile__lang-check {
+    color: var(--color-accent);
+}
+
+.profile__toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: color-mix(in srgb, var(--color-text-subtle) 10%, transparent);
+    color: var(--color-text-subtle);
+}
+.profile__toggle--on {
+    background: var(--color-accent-tint);
     color: var(--color-accent);
 }
 

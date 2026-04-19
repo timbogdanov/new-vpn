@@ -22,3 +22,8 @@ Schedule::command('ooni:warm-cache --force')
     ->hourly()
     ->withoutOverlapping()
     ->runInBackground();
+
+Schedule::command('ooni:diff-watchlists')
+    ->everyThirtyMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();

@@ -94,6 +94,7 @@ class ProfileController extends Controller
             'languageCode' => ['nullable', 'string', 'in:ru,en'],
             'rotateSubToken' => ['nullable', 'boolean'],
             'onboarded' => ['nullable', 'boolean'],
+            'contributeSignals' => ['nullable', 'boolean'],
         ]);
 
         if (!empty($data['languageCode'])) {
@@ -110,12 +111,18 @@ class ProfileController extends Controller
             $user->forceFill(['onboarded_at' => Carbon::now()])->save();
         }
 
+        if (array_key_exists('contributeSignals', $data) && $data['contributeSignals'] !== null) {
+            $user->ooni_contribute = (bool) $data['contributeSignals'];
+            $user->save();
+        }
+
         return response()->json([
             'user' => [
                 'id' => $user->telegram_id,
                 'languageCode' => $user->language_code,
                 'subToken' => $user->getOrGenerateSubToken(),
                 'onboardedAt' => $user->onboarded_at?->toIso8601String(),
+                'contributeSignals' => (bool) $user->ooni_contribute,
             ],
             'aggregatedSubscriptionUrl' => url('/sub/u/' . $user->getOrGenerateSubToken()),
         ]);

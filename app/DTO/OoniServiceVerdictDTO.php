@@ -18,6 +18,11 @@ readonly class OoniServiceVerdictDTO
 
     public function toArray(): array
     {
+        // Defensive: if a cached DTO from before communityMeasurementCount existed
+        // was unserialized, the property is not initialized (unserialize bypasses
+        // the constructor default). Read via reflection-safe isset() fallback.
+        $community = isset($this->communityMeasurementCount) ? $this->communityMeasurementCount : 0;
+
         return [
             'key' => $this->key,
             'label' => $this->label,
@@ -27,7 +32,7 @@ readonly class OoniServiceVerdictDTO
             'anomaly' => $this->anomalyCount,
             'ok' => $this->okCount,
             'lastChangeAt' => $this->lastChangeAt,
-            'communityMeasurements' => $this->communityMeasurementCount,
+            'communityMeasurements' => $community,
         ];
     }
 }

@@ -118,7 +118,7 @@
 /* ---------- Light mode overrides ---------- */
 [data-theme="light"] {
     --color-gray-0: #FFFFFF;
-    --color-gray-1: #FAFAFA;
+    --color-gray-1: #EAEAEA;
     --color-gray-2: #FFFFFF;
     --color-gray-3: #F0F0F0;
     --color-gray-4: #D4D4D4;

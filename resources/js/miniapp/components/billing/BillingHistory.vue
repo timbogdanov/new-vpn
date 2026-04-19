@@ -10,7 +10,8 @@ const loading = ref(true);
 
 onMounted(async () => {
     try {
-        items.value = await fetchHistory();
+        const all = await fetchHistory();
+        items.value = (all || []).filter((p) => p.status !== 'pending');
     } finally {
         loading.value = false;
     }

@@ -153,14 +153,17 @@ function dismissError() {
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-pill);
-    color: var(--color-text-subtle);
+    background: var(--color-surface);
+    color: var(--color-text-strong);
+    border: 1px solid var(--color-separator);
     transition:
         color var(--duration-fast) var(--ease-standard),
-        background var(--duration-fast) var(--ease-standard);
+        background var(--duration-fast) var(--ease-standard),
+        border-color var(--duration-fast) var(--ease-standard);
 }
 .shell-header__icon-btn:active {
-    color: var(--color-text-strong);
     background: var(--color-surface-raised);
+    border-color: var(--color-border-weak);
 }
 
 .shell-main {

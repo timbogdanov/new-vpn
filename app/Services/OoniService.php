@@ -657,7 +657,7 @@ class OoniService
             });
         } catch (\Throwable $e) {
             Log::warning('OONI: url-details pool threw', ['error' => $e->getMessage(), 'url' => $url]);
-            return [null, null, null];
+            return [null, null, null, null];
         }
 
         $out = [null, null, null, null];

@@ -27,3 +27,8 @@ Schedule::command('ooni:diff-watchlists')
     ->everyThirtyMinutes()
     ->withoutOverlapping()
     ->runInBackground();
+
+Schedule::command('ooni:purge-tombstones')
+    ->dailyAt('03:15')
+    ->withoutOverlapping()
+    ->runInBackground();

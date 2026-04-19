@@ -21,13 +21,15 @@ class OoniContributeController extends Controller
             return response()->json(['error' => 'contribute_disabled'], 403);
         }
 
-        $validKeys = array_column((array) config('ooni.services', []), 'key');
-
+        // Accept any serviceKey (including '_custom' for free-form URL probes
+        // launched from the details-page empty state). The service_key column
+        // stays useful for grouping catalog-bound signals; non-catalog probes
+        // get bucketed under a single key and are still queryable by URL.
         $data = $request->validate([
             'country' => ['required', 'string', 'size:2'],
             'asn' => ['nullable', 'string', 'max:16'],
             'signals' => ['present', 'array', 'max:40'],
-            'signals.*.serviceKey' => ['required', 'string', Rule::in($validKeys)],
+            'signals.*.serviceKey' => ['nullable', 'string', 'max:32'],
             'signals.*.url' => ['required', 'url', 'max:512'],
             'signals.*.result' => ['required', Rule::in(['reachable', 'blocked'])],
             'signals.*.observedAt' => ['nullable', 'date'],
@@ -46,7 +48,7 @@ class OoniContributeController extends Controller
             'user_hash' => $hash,
             'country_code' => $country,
             'asn' => $asn,
-            'service_key' => $s['serviceKey'],
+            'service_key' => !empty($s['serviceKey']) ? $s['serviceKey'] : '_custom',
             'url' => $s['url'],
             'result' => $s['result'],
             'observed_at' => isset($s['observedAt']) ? Carbon::parse($s['observedAt']) : $now,

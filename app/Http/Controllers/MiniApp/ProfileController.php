@@ -95,6 +95,7 @@ class ProfileController extends Controller
             'rotateSubToken' => ['nullable', 'boolean'],
             'onboarded' => ['nullable', 'boolean'],
             'contributeSignals' => ['nullable', 'boolean'],
+            'contributeAcked' => ['nullable', 'boolean'],
         ]);
 
         if (!empty($data['languageCode'])) {
@@ -113,7 +114,10 @@ class ProfileController extends Controller
 
         if (array_key_exists('contributeSignals', $data) && $data['contributeSignals'] !== null) {
             $user->ooni_contribute = (bool) $data['contributeSignals'];
+            $user->ooni_contribute_acked_at = Carbon::now();
             $user->save();
+        } elseif (!empty($data['contributeAcked']) && $user->ooni_contribute_acked_at === null) {
+            $user->forceFill(['ooni_contribute_acked_at' => Carbon::now()])->save();
         }
 
         return response()->json([
@@ -123,6 +127,7 @@ class ProfileController extends Controller
                 'subToken' => $user->getOrGenerateSubToken(),
                 'onboardedAt' => $user->onboarded_at?->toIso8601String(),
                 'contributeSignals' => (bool) $user->ooni_contribute,
+                'contributeAckedAt' => $user->ooni_contribute_acked_at?->toIso8601String(),
             ],
             'aggregatedSubscriptionUrl' => url('/sub/u/' . $user->getOrGenerateSubToken()),
         ]);

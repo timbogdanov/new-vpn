@@ -15,13 +15,12 @@ class DiffOoniWatchlists extends Command
 {
     protected $signature = 'ooni:diff-watchlists';
 
-    protected $description = 'Compare each watchlisted user\'s current OONI verdicts vs their last snapshot; push a Telegram alert when any status flips.';
+    protected $description = "Compare each watchlisted user's current OONI verdicts vs their last snapshot; push a Telegram alert when any status flips. Supports both curated service keys and arbitrary watched URLs.";
 
     public function handle(OoniService $ooni, TelegramMessageService $messenger): int
     {
         $sent = 0; $scanned = 0; $skipped = 0; $errors = 0;
 
-        // Build a labelled map once — saves a config hit per user.
         $labels = [];
         foreach ((array) config('ooni.services', []) as $svc) {
             $labels[$svc['key']] = $svc['label'];
@@ -31,7 +30,9 @@ class DiffOoniWatchlists extends Command
         $recommendedName = $recommended?->name ?? 'the recommended server';
 
         TelegramUser::query()
-            ->whereNotNull('ooni_watchlist')
+            ->where(function ($q) {
+                $q->whereNotNull('ooni_watchlist')->orWhereNotNull('ooni_watchlist_urls');
+            })
             ->where('allows_write_to_pm', true)
             ->chunkById(100, function ($users) use (
                 $ooni, $messenger, $labels, $recommendedName,
@@ -40,8 +41,9 @@ class DiffOoniWatchlists extends Command
                 foreach ($users as $user) {
                     $scanned++;
 
-                    $watch = (array) ($user->ooni_watchlist ?? []);
-                    if (!$watch) {
+                    $services = (array) ($user->ooni_watchlist ?? []);
+                    $urls = (array) ($user->ooni_watchlist_urls ?? []);
+                    if (!$services && !$urls) {
                         $skipped++;
                         continue;
                     }
@@ -52,54 +54,86 @@ class DiffOoniWatchlists extends Command
                         continue;
                     }
 
-                    try {
-                        $summary = $ooni->summary($country, $asn);
-                    } catch (\Throwable $e) {
-                        $errors++;
-                        Log::warning('ooni:diff-watchlists: summary failed', [
-                            'telegram_id' => $user->telegram_id,
-                            'error' => $e->getMessage(),
-                        ]);
-                        continue;
-                    }
+                    $locale = $user->language_code ?: config('app.locale', 'en');
+                    $locale = in_array($locale, ['en', 'ru'], true) ? $locale : 'en';
 
-                    $currentByKey = [];
-                    foreach ($summary->services as $v) {
-                        $currentByKey[$v->key] = $v->status;
-                    }
-
-                    $prev = (array) ($user->ooni_watchlist_snapshot ?? []);
+                    // Back-compat: existing snapshots may store bare keys (e.g. 'youtube'
+                    // instead of 'service:youtube'). Migrate on read.
+                    $prev = $this->upgradeSnapshot((array) ($user->ooni_watchlist_snapshot ?? []));
                     $nextSnapshot = $prev;
                     $flips = [];
 
-                    foreach ($watch as $key) {
-                        $now = $currentByKey[$key] ?? 'unknown';
-                        $was = $prev[$key]['status'] ?? null;
-
-                        if ($was && $was !== $now) {
-                            $flips[] = ['key' => $key, 'from' => $was, 'to' => $now];
+                    // Service watchlist
+                    if ($services) {
+                        try {
+                            $summary = $ooni->summary($country, $asn);
+                        } catch (\Throwable $e) {
+                            $errors++;
+                            Log::warning('ooni:diff-watchlists: summary failed', [
+                                'telegram_id' => $user->telegram_id,
+                                'error' => $e->getMessage(),
+                            ]);
+                            continue;
                         }
-                        $nextSnapshot[$key] = [
+                        $currentByKey = [];
+                        foreach ($summary->services as $v) {
+                            $currentByKey[$v->key] = $v->status;
+                        }
+                        foreach ($services as $key) {
+                            $now = $currentByKey[$key] ?? 'unknown';
+                            $snapshotKey = 'service:' . $key;
+                            $was = $prev[$snapshotKey]['status'] ?? null;
+                            if ($was && $was !== $now) {
+                                $flips[] = [
+                                    'label' => $labels[$key] ?? $key,
+                                    'from' => $was,
+                                    'to' => $now,
+                                ];
+                            }
+                            $nextSnapshot[$snapshotKey] = [
+                                'status' => $now,
+                                'observedAt' => Carbon::now()->toIso8601String(),
+                            ];
+                        }
+                    }
+
+                    // URL watchlist
+                    foreach ($urls as $url) {
+                        $snapshotKey = 'url:' . sha1($url);
+                        try {
+                            $details = $ooni->urlDetails($url, $country, $asn, 7);
+                        } catch (\Throwable $e) {
+                            $errors++;
+                            Log::warning('ooni:diff-watchlists: url-details failed', [
+                                'telegram_id' => $user->telegram_id,
+                                'url' => $url,
+                                'error' => $e->getMessage(),
+                            ]);
+                            continue;
+                        }
+                        $now = $details->verdictStatus;
+                        $was = $prev[$snapshotKey]['status'] ?? null;
+                        $host = $details->host;
+                        if ($was && $was !== $now) {
+                            $flips[] = ['label' => $host, 'from' => $was, 'to' => $now];
+                        }
+                        $nextSnapshot[$snapshotKey] = [
                             'status' => $now,
                             'observedAt' => Carbon::now()->toIso8601String(),
+                            'host' => $host,
                         ];
                     }
 
-                    if ($flips) {
-                        foreach ($flips as $f) {
-                            $label = $labels[$f['key']] ?? $f['key'];
-                            $locale = $user->language_code ?: config('app.locale', 'en');
-                            $locale = in_array($locale, ['en', 'ru'], true) ? $locale : 'en';
-                            $unblocked = in_array($f['to'], ['reachable'], true);
-                            $msgKey = $unblocked ? 'ooni.alert_unblocked' : 'ooni.alert_blocked';
-                            $text = Lang::get($msgKey, [
-                                'service' => $label,
-                                'server' => $recommendedName,
-                            ], $locale);
-                            $ok = $messenger->send((int) $user->telegram_id, $text);
-                            if ($ok) {
-                                $sent++;
-                            }
+                    foreach ($flips as $f) {
+                        $unblocked = $f['to'] === 'reachable';
+                        $msgKey = $unblocked ? 'ooni.alert_unblocked' : 'ooni.alert_blocked';
+                        $text = Lang::get($msgKey, [
+                            'service' => $f['label'],
+                            'server' => $recommendedName,
+                        ], $locale);
+                        $ok = $messenger->send((int) $user->telegram_id, $text);
+                        if ($ok) {
+                            $sent++;
                         }
                     }
 
@@ -113,5 +147,23 @@ class DiffOoniWatchlists extends Command
             $scanned, $sent, $skipped, $errors,
         ));
         return self::SUCCESS;
+    }
+
+    /**
+     * Map pre-2026-04-19 bare-key snapshots (`youtube => {status,...}`) onto
+     * the namespaced form (`service:youtube => {...}`) so the new diff logic
+     * reads them correctly on first run.
+     */
+    private function upgradeSnapshot(array $prev): array
+    {
+        $out = [];
+        foreach ($prev as $key => $row) {
+            if (is_string($key) && (str_starts_with($key, 'service:') || str_starts_with($key, 'url:'))) {
+                $out[$key] = $row;
+            } else {
+                $out['service:' . $key] = $row;
+            }
+        }
+        return $out;
     }
 }

@@ -1,11 +1,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { Copy, Check } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
 
-import { store, fetchProfile, updateProfile, toast } from '../store.js';
+import { store, fetchProfile, updateProfile, ackContributeBanner, toast } from '../store.js';
 import { t, setLocale } from '../i18n.js';
 import { hap, openExternal, showPopup } from '../telegram.js';
 import { useClipboard } from '../composables/useClipboard.js';
+
+const router = useRouter();
 
 import TrafficDonut from '../components/TrafficDonut.vue';
 import Skeleton from '../components/Skeleton.vue';
@@ -86,6 +89,28 @@ async function toggleContribute() {
     } catch (_) {
         // updateProfile swallows / toasts via store; no extra work.
     }
+}
+
+// One-time disclosure sheet for the 2026-04-19 opt-in default flip. Shown
+// until the user acknowledges it (either keeping or opting out of sharing).
+const showContributeBanner = computed(() => {
+    return !!(store.user && store.user.contributeSignals && !store.user.contributeAckedAt);
+});
+
+function onBannerDismiss() {
+    ackContributeBanner();
+}
+
+function onBannerOk() {
+    hap.select();
+    ackContributeBanner();
+}
+
+async function onBannerOff() {
+    hap.select();
+    try {
+        await updateProfile({ contributeSignals: false });
+    } catch (_) { /* store handles */ }
 }
 
 const paywallOpen = ref(false);
@@ -217,9 +242,29 @@ onMounted(load);
                         </span>
                     </template>
                 </ListRow>
+                <ListRow chevron @click="router.push('/profile/my-data')">
+                    <template #title>{{ t('profile.myDataRow') }}</template>
+                </ListRow>
             </ListGroup>
             <p class="profile__hint">{{ t('profile.contributeHint') }}</p>
         </section>
+
+        <Sheet
+            :open="showContributeBanner"
+            :aria-label="t('profile.contributeBannerTitle')"
+            @update:open="(v) => !v && onBannerDismiss()"
+        >
+            <h3 class="profile__banner-title">{{ t('profile.contributeBannerTitle') }}</h3>
+            <p class="profile__banner-body">{{ t('profile.contributeBannerBody') }}</p>
+            <div class="profile__banner-actions">
+                <button type="button" class="profile__banner-off" @click="onBannerOff">
+                    {{ t('profile.contributeBannerOff') }}
+                </button>
+                <button type="button" class="profile__banner-ok" @click="onBannerOk">
+                    {{ t('profile.contributeBannerOk') }}
+                </button>
+            </div>
+        </Sheet>
 
         <section v-if="store.config?.supportUrl" class="profile__section">
             <ListGroup>
@@ -239,6 +284,42 @@ onMounted(load);
 </template>
 
 <style scoped>
+.profile__banner-title {
+    margin: 0 0 8px;
+    font-family: var(--font-serif, 'Instrument Serif', Georgia, serif);
+    font-weight: 400;
+    font-size: 22px;
+    line-height: 28px;
+    color: var(--color-text-strong);
+}
+.profile__banner-body {
+    margin: 0 0 16px;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--color-text-subtle);
+}
+.profile__banner-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+.profile__banner-ok {
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 500;
+}
+.profile__banner-off {
+    background: transparent;
+    color: var(--color-text-subtle);
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 500;
+}
+
 .profile {
     display: flex;
     flex-direction: column;

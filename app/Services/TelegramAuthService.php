@@ -97,6 +97,10 @@ class TelegramAuthService
         if (!$user->exists) {
             $tgLang = isset($data['language_code']) ? substr((string) $data['language_code'], 0, 8) : null;
             $user->language_code = $tgLang === 'ru' ? 'ru' : ($tgLang === 'en' ? 'en' : 'ru');
+            // Data collection is on-by-default per the April 2026 policy flip. The
+            // column default works on MySQL/Postgres; on SQLite we set it here
+            // explicitly so new rows arrive opted-in regardless of driver.
+            $user->ooni_contribute = true;
         }
 
         $throttle = (int) config('miniapp.last_active_throttle_seconds', 60);

@@ -101,15 +101,27 @@ function refresh() {
                 {{ t('tools.freedomDetecting') }}
             </p>
 
+            <ListGroup>
+                <ListRow chevron @click="router.push('/tools/freedom/search')">
+                    <template #title>{{ t('tools.freedomSearchEntry') }}</template>
+                </ListRow>
+            </ListGroup>
+
             <div v-if="loading && !summary" class="freedom__skel">
                 <Skeleton v-for="i in 6" :key="i" :height="56" />
             </div>
 
             <template v-else-if="summary">
-                <ListGroup>
+                <ListGroup v-if="!services.length">
+                    <ListRow :interactive="false">
+                        <template #title>{{ t('tools.freedomNoData') }}</template>
+                    </ListRow>
+                </ListGroup>
+
+                <ListGroup v-else>
                     <ListRow :interactive="false">
                         <template #title>
-                            {{ t('tools.freedomSummary', { blocked: blocked.length, total }) }}
+                            {{ t('tools.freedomTopBlocked') }}
                         </template>
                         <template #subtitle>
                             {{ t('tools.freedomLookback', { days: summary.lookbackDays || 7 }) }}

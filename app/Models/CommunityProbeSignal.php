@@ -20,6 +20,7 @@ class CommunityProbeSignal extends Model
         'url',
         'result',
         'observed_at',
+        'deleted_at',
     ];
 
     protected function casts(): array
@@ -27,7 +28,13 @@ class CommunityProbeSignal extends Model
         return [
             'observed_at' => 'datetime',
             'created_at' => 'datetime',
+            'deleted_at' => 'datetime',
         ];
+    }
+
+    public function scopeAlive($query)
+    {
+        return $query->whereNull('deleted_at');
     }
 
     public static function hashForUser(int $telegramId): string

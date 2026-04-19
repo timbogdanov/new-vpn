@@ -2,8 +2,12 @@
 
 namespace App\Services;
 
+use App\DTO\OoniAsnBreakdownDTO;
+use App\DTO\OoniMeasurementDTO;
 use App\DTO\OoniServiceVerdictDTO;
 use App\DTO\OoniSummaryDTO;
+use App\DTO\OoniTimeseriesPointDTO;
+use App\DTO\OoniUrlDetailsDTO;
 use App\Models\CommunityProbeSignal;
 use Carbon\Carbon;
 use Illuminate\Http\Client\Pool;
@@ -316,6 +320,7 @@ class OoniService
 
         $since = Carbon::now('UTC')->subDays($lookbackDays);
         $q = CommunityProbeSignal::query()
+            ->whereNull('deleted_at')
             ->where('country_code', $country)
             ->where('observed_at', '>=', $since);
         if ($asn) {
@@ -333,7 +338,7 @@ class OoniService
         return $out;
     }
 
-    private function classify(int $measurements, int $confirmed, int $anomaly): string
+    public function classify(int $measurements, int $confirmed, int $anomaly): string
     {
         $min = (int) config('ooni.min_measurements', 3);
         if ($confirmed > 0) {
@@ -350,5 +355,417 @@ class OoniService
             return 'degraded';
         }
         return 'reachable';
+    }
+
+    /**
+     * Same as summary() but sorted by verdict severity so the FreedomMap grid
+     * shows the most-likely-blocked services first. Underlying fetch path and
+     * cache key are shared with summary() — only the order is different.
+     */
+    public function topBlocked(string $countryCode, ?string $asn, ?int $limit = null): OoniSummaryDTO
+    {
+        $summary = $this->summary($countryCode, $asn);
+        $limit ??= (int) config('ooni.top_blocked_display_limit', 15);
+
+        $rank = [
+            'blocked'   => 0,
+            'degraded'  => 1,
+            'unknown'   => 2,
+            'reachable' => 3,
+        ];
+
+        $services = $summary->services;
+        usort($services, function (OoniServiceVerdictDTO $a, OoniServiceVerdictDTO $b) use ($rank) {
+            $r = ($rank[$a->status] ?? 9) <=> ($rank[$b->status] ?? 9);
+            if ($r !== 0) {
+                return $r;
+            }
+            $ratioA = $a->measurementCount > 0 ? ($a->anomalyCount + $a->confirmedCount) / $a->measurementCount : 0.0;
+            $ratioB = $b->measurementCount > 0 ? ($b->anomalyCount + $b->confirmedCount) / $b->measurementCount : 0.0;
+            if ($ratioA !== $ratioB) {
+                return $ratioB <=> $ratioA;
+            }
+            return $b->measurementCount <=> $a->measurementCount;
+        });
+
+        if ($limit > 0 && count($services) > $limit) {
+            $services = array_slice($services, 0, $limit);
+        }
+
+        return new OoniSummaryDTO(
+            countryCode: $summary->countryCode,
+            asn: $summary->asn,
+            asnName: $summary->asnName,
+            lookbackDays: $summary->lookbackDays,
+            services: $services,
+            freshAt: $summary->freshAt,
+        );
+    }
+
+    /**
+     * Rich per-URL details: day-by-day timeseries + per-ASN breakdown within
+     * the country + recent measurement records, for a details page. Cached
+     * per (url, country, asn, days) for config('ooni.details_cache_ttl').
+     */
+    public function urlDetails(
+        string $normalizedUrl,
+        string $countryCode,
+        ?string $asn,
+        ?int $days = null,
+        bool $force = false,
+    ): OoniUrlDetailsDTO {
+        $country = strtoupper(trim($countryCode)) ?: 'XX';
+        $asnUp   = $asn ? strtoupper(trim($asn)) : null;
+        $days    = $days ?? (int) config('ooni.details_lookback_days', 30);
+        $days    = max(7, min(60, $days));
+
+        $hash = sha1($normalizedUrl);
+        $cacheKey = "ooni:url:{$hash}:{$country}:" . ($asnUp ?: 'NOASN') . ":{$days}";
+        $ttl = (int) config('ooni.details_cache_ttl', 900);
+
+        if ($force) {
+            Cache::forget($cacheKey);
+        } else {
+            $cached = Cache::get($cacheKey);
+            if ($cached instanceof OoniUrlDetailsDTO) {
+                return $cached;
+            }
+        }
+
+        $built = $this->buildUrlDetails($normalizedUrl, $hash, $country, $asnUp, $days);
+        Cache::put($cacheKey, $built, $ttl);
+        return $built;
+    }
+
+    private function buildUrlDetails(
+        string $url,
+        string $hash,
+        string $country,
+        ?string $asn,
+        int $days,
+    ): OoniUrlDetailsDTO {
+        $host = parse_url($url, PHP_URL_HOST) ?: $url;
+        $since = Carbon::now('UTC')->subDays($days)->toDateString();
+        $until = Carbon::now('UTC')->addDay()->toDateString();
+        $asnNumeric = $asn ? preg_replace('/^AS/i', '', $asn) : null;
+
+        [$timeseriesPayload, $asnPayload, $measurementsPayload] = $this->poolDetailRequests(
+            $url, $country, $asnNumeric, $since, $until,
+        );
+
+        $timeseries = $this->extractTimeseries($timeseriesPayload, $days);
+        $asnBreakdown = $this->extractAsnBreakdown($asnPayload);
+        $measurements = $this->extractMeasurements($measurementsPayload);
+
+        // Degraded-confidence fallback: if ASN-scoped timeseries is thin, retry
+        // country-only so the sparkline isn't empty.
+        $degradedConfidence = false;
+        $totalMeasurements = array_sum(array_map(fn ($p) => $p->measurementCount, $timeseries));
+        if ($asn && $totalMeasurements < (int) config('ooni.min_measurements', 3)) {
+            $degradedConfidence = true;
+            $fallback = $this->fetchCountryTimeseries($url, $country, $since, $until);
+            if ($fallback) {
+                $timeseries = $this->extractTimeseries($fallback, $days);
+                $totalMeasurements = array_sum(array_map(fn ($p) => $p->measurementCount, $timeseries));
+            }
+        }
+
+        $totalOk = array_sum(array_map(fn ($p) => $p->okCount, $timeseries));
+        $totalAnomaly = array_sum(array_map(fn ($p) => $p->anomalyCount, $timeseries));
+        $totalConfirmed = array_sum(array_map(fn ($p) => $p->confirmedCount, $timeseries));
+        $totalFailure = array_sum(array_map(fn ($p) => $p->failureCount, $timeseries));
+
+        [$status, $reason] = $this->classifyWithReason(
+            $totalMeasurements,
+            $totalConfirmed,
+            $totalAnomaly,
+        );
+
+        $communityCount = $this->communityCountForUrl($url, $country, $asn, $days);
+        if ($status === 'unknown' && $communityCount > 0) {
+            // Mirror the soft-upgrade pattern from buildSummary().
+            $reason = 'community_only';
+        }
+
+        return new OoniUrlDetailsDTO(
+            url: $url,
+            host: $host,
+            urlHash: $hash,
+            countryCode: $country,
+            asn: $asn,
+            asnName: null,
+            lookbackDays: $days,
+            verdictStatus: $status,
+            verdictReason: $reason,
+            measurementCount: $totalMeasurements,
+            confirmedCount: $totalConfirmed,
+            anomalyCount: $totalAnomaly,
+            okCount: $totalOk,
+            failureCount: $totalFailure,
+            communityCount: $communityCount,
+            degradedConfidence: $degradedConfidence,
+            recommendedServerSlug: null, // controller populates from ServerRegistry
+            timeseries: $timeseries,
+            asnBreakdown: $asnBreakdown,
+            measurements: $measurements,
+            freshAt: Carbon::now(),
+        );
+    }
+
+    /**
+     * Three parallel requests: daily timeseries, per-ASN breakdown, recent
+     * measurement records. Returns payloads in a fixed order.
+     *
+     * @return array{0: ?array, 1: ?array, 2: ?array}
+     */
+    private function poolDetailRequests(
+        string $url,
+        string $country,
+        ?string $asnNumeric,
+        string $since,
+        string $until,
+    ): array {
+        $base = rtrim((string) config('ooni.api_url', 'https://api.ooni.org'), '/');
+        $timeout = (int) config('ooni.timeout', 12);
+        $measurementsLimit = (int) config('ooni.details_measurements_limit', 20);
+
+        $common = [
+            'test_name' => 'web_connectivity',
+            'probe_cc'  => $country,
+            'since'     => $since,
+            'until'     => $until,
+            'input'     => $url,
+        ];
+        if ($asnNumeric) {
+            $common['probe_asn'] = $asnNumeric;
+        }
+
+        try {
+            $responses = Http::pool(function (Pool $pool) use ($base, $timeout, $common, $url, $country, $asnNumeric, $measurementsLimit) {
+                $requests = [];
+
+                // 0: daily timeseries (ASN-scoped when provided)
+                $requests[] = $pool
+                    ->timeout($timeout)
+                    ->acceptJson()
+                    ->withUserAgent('Larastory-VPN-MiniApp/1.0 (+OONI url details)')
+                    ->get($base . '/api/v1/aggregation', array_merge($common, ['axis_x' => 'measurement_start_day']));
+
+                // 1: per-ASN breakdown within country (no probe_asn filter)
+                $asnParams = $common;
+                unset($asnParams['probe_asn']);
+                $asnParams['axis_x'] = 'probe_asn';
+                $requests[] = $pool
+                    ->timeout($timeout)
+                    ->acceptJson()
+                    ->withUserAgent('Larastory-VPN-MiniApp/1.0 (+OONI url details)')
+                    ->get($base . '/api/v1/aggregation', $asnParams);
+
+                // 2: recent measurements
+                $mParams = [
+                    'test_name' => 'web_connectivity',
+                    'probe_cc'  => $country,
+                    'input'     => $url,
+                    'limit'     => $measurementsLimit,
+                    'order'     => 'desc',
+                    'order_by'  => 'measurement_start_time',
+                ];
+                if ($asnNumeric) {
+                    $mParams['probe_asn'] = $asnNumeric;
+                }
+                $requests[] = $pool
+                    ->timeout($timeout)
+                    ->acceptJson()
+                    ->withUserAgent('Larastory-VPN-MiniApp/1.0 (+OONI url details)')
+                    ->get($base . '/api/v1/measurements', $mParams);
+
+                return $requests;
+            });
+        } catch (\Throwable $e) {
+            Log::warning('OONI: url-details pool threw', ['error' => $e->getMessage(), 'url' => $url]);
+            return [null, null, null];
+        }
+
+        $out = [null, null, null];
+        foreach ($responses as $i => $resp) {
+            if ($resp instanceof \Throwable) {
+                Log::info('OONI: url-details single request failed', ['i' => $i, 'error' => $resp->getMessage()]);
+                continue;
+            }
+            if (!method_exists($resp, 'successful') || !$resp->successful()) {
+                continue;
+            }
+            $out[$i] = $resp->json();
+        }
+        return $out;
+    }
+
+    /**
+     * @return array<int, OoniTimeseriesPointDTO>
+     */
+    private function extractTimeseries(?array $payload, int $days): array
+    {
+        $byDate = [];
+        $rows = (is_array($payload) && is_array($payload['result'] ?? null)) ? $payload['result'] : [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || empty($row['measurement_start_day'])) {
+                continue;
+            }
+            $date = (string) $row['measurement_start_day'];
+            $byDate[$date] = [
+                'm'    => (int) ($row['measurement_count'] ?? 0),
+                'ok'   => (int) ($row['ok_count'] ?? 0),
+                'anom' => (int) ($row['anomaly_count'] ?? 0),
+                'conf' => (int) ($row['confirmed_count'] ?? 0),
+                'fail' => (int) ($row['failure_count'] ?? 0),
+            ];
+        }
+
+        $points = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $date = Carbon::now('UTC')->subDays($i)->toDateString();
+            $b = $byDate[$date] ?? ['m' => 0, 'ok' => 0, 'anom' => 0, 'conf' => 0, 'fail' => 0];
+            $points[] = new OoniTimeseriesPointDTO(
+                date: $date,
+                measurementCount: $b['m'],
+                okCount: $b['ok'],
+                anomalyCount: $b['anom'],
+                confirmedCount: $b['conf'],
+                failureCount: $b['fail'],
+            );
+        }
+        return $points;
+    }
+
+    /**
+     * @return array<int, OoniAsnBreakdownDTO>
+     */
+    private function extractAsnBreakdown(?array $payload): array
+    {
+        $rows = (is_array($payload) && is_array($payload['result'] ?? null)) ? $payload['result'] : [];
+        $out = [];
+        foreach ($rows as $row) {
+            if (!is_array($row) || !isset($row['probe_asn'])) {
+                continue;
+            }
+            $m = (int) ($row['measurement_count'] ?? 0);
+            $conf = (int) ($row['confirmed_count'] ?? 0);
+            $anom = (int) ($row['anomaly_count'] ?? 0);
+            $status = $this->classify($m, $conf, $anom);
+            $asnNum = (int) $row['probe_asn'];
+            if ($asnNum <= 0) {
+                continue;
+            }
+            $out[] = new OoniAsnBreakdownDTO(
+                asn: 'AS' . $asnNum,
+                asnName: null,
+                measurementCount: $m,
+                okCount: (int) ($row['ok_count'] ?? 0),
+                anomalyCount: $anom,
+                confirmedCount: $conf,
+                failureCount: (int) ($row['failure_count'] ?? 0),
+                status: $status,
+            );
+        }
+
+        $rank = ['blocked' => 0, 'degraded' => 1, 'unknown' => 2, 'reachable' => 3];
+        usort($out, function (OoniAsnBreakdownDTO $a, OoniAsnBreakdownDTO $b) use ($rank) {
+            $r = ($rank[$a->status] ?? 9) <=> ($rank[$b->status] ?? 9);
+            if ($r !== 0) return $r;
+            return $b->measurementCount <=> $a->measurementCount;
+        });
+
+        $limit = (int) config('ooni.asn_breakdown_limit', 8);
+        return $limit > 0 ? array_slice($out, 0, $limit) : $out;
+    }
+
+    /**
+     * @return array<int, OoniMeasurementDTO>
+     */
+    private function extractMeasurements(?array $payload): array
+    {
+        $rows = (is_array($payload) && is_array($payload['results'] ?? null)) ? $payload['results'] : [];
+        $out = [];
+        foreach ($rows as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $asnInt = (int) ($r['probe_asn'] ?? 0);
+            $out[] = new OoniMeasurementDTO(
+                measurementUid: $r['measurement_uid'] ?? null,
+                reportId: $r['report_id'] ?? null,
+                probeAsn: $asnInt > 0 ? 'AS' . $asnInt : null,
+                probeCc: $r['probe_cc'] ?? null,
+                measurementStartTime: $r['measurement_start_time'] ?? null,
+                anomaly: (bool) ($r['anomaly'] ?? false),
+                confirmed: (bool) ($r['confirmed'] ?? false),
+                failure: (bool) ($r['failure'] ?? false),
+                measurementUrl: $r['measurement_url'] ?? null,
+                testName: $r['test_name'] ?? null,
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * @return array{0: string, 1: string}  [status, reasonCode]
+     */
+    private function classifyWithReason(int $measurements, int $confirmed, int $anomaly): array
+    {
+        $min = (int) config('ooni.min_measurements', 3);
+        if ($confirmed > 0) {
+            return ['blocked', 'confirmed_block'];
+        }
+        if ($measurements < $min) {
+            return ['unknown', 'no_data'];
+        }
+        $ratio = $measurements > 0 ? $anomaly / $measurements : 0.0;
+        if ($ratio >= 0.5) {
+            return ['blocked', 'high_anomaly'];
+        }
+        if ($ratio >= 0.2) {
+            return ['degraded', 'partial_anomaly'];
+        }
+        return ['reachable', 'reachable_strong'];
+    }
+
+    private function fetchCountryTimeseries(string $url, string $country, string $since, string $until): ?array
+    {
+        $base = rtrim((string) config('ooni.api_url', 'https://api.ooni.org'), '/');
+        $timeout = (int) config('ooni.timeout', 12);
+        try {
+            $resp = Http::timeout($timeout)
+                ->acceptJson()
+                ->withUserAgent('Larastory-VPN-MiniApp/1.0 (+OONI url details fallback)')
+                ->get($base . '/api/v1/aggregation', [
+                    'test_name' => 'web_connectivity',
+                    'probe_cc'  => $country,
+                    'input'     => $url,
+                    'since'     => $since,
+                    'until'     => $until,
+                    'axis_x'    => 'measurement_start_day',
+                ]);
+            return $resp->successful() ? $resp->json() : null;
+        } catch (\Throwable $e) {
+            Log::info('OONI: country-fallback timeseries failed', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    private function communityCountForUrl(string $url, string $country, ?string $asn, int $lookbackDays): int
+    {
+        if (!Schema::hasTable('community_probe_signals')) {
+            return 0;
+        }
+        $since = Carbon::now('UTC')->subDays($lookbackDays);
+        $q = CommunityProbeSignal::query()
+            ->whereNull('deleted_at')
+            ->where('country_code', $country)
+            ->where('url', $url)
+            ->where('observed_at', '>=', $since);
+        if ($asn) {
+            $q->where('asn', strtoupper($asn));
+        }
+        return (int) $q->count();
     }
 }

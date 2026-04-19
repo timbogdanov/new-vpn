@@ -20,6 +20,13 @@ export const store = reactive({
     ooni: null,
     ooniLoading: false,
     ooniWatchlist: [],
+    ooniWatchlistUrls: [],
+
+    urlDetailsCache: {},     // keyed by sha1(url)
+    searchCache: {},         // keyed by `${q}|${country}`
+
+    myData: null,
+    myDataLoading: false,
 
     get availableServers() {
         return this.servers.filter((s) => !s.isComingSoon);
@@ -46,6 +53,7 @@ export async function bootstrap() {
         store.config = data.config || {};
         store.subscription = data.subscription || null;
         store.ooniWatchlist = Array.isArray(data.user?.ooniWatchlist) ? data.user.ooniWatchlist : [];
+        store.ooniWatchlistUrls = Array.isArray(data.user?.ooniWatchlistUrls) ? data.user.ooniWatchlistUrls : [];
         store.ready = true;
     } catch (e) {
         store.error = describeError(e);
@@ -94,11 +102,26 @@ export async function updateProfile(patch) {
     if (store.user) {
         if (data.user?.languageCode) store.user.languageCode = data.user.languageCode;
         if (data.user?.subToken) store.user.subToken = data.user.subToken;
+        if (data.user && 'contributeSignals' in data.user) {
+            store.user.contributeSignals = !!data.user.contributeSignals;
+        }
+        if (data.user?.contributeAckedAt) {
+            store.user.contributeAckedAt = data.user.contributeAckedAt;
+        }
     }
     if (data.aggregatedSubscriptionUrl && store.config) {
         store.config.aggregatedSubscriptionUrl = data.aggregatedSubscriptionUrl;
     }
     return data;
+}
+
+export async function ackContributeBanner() {
+    try {
+        const { data } = await api.patch('/profile', { contributeAcked: true });
+        if (store.user) {
+            store.user.contributeAckedAt = data.user?.contributeAckedAt || new Date().toISOString();
+        }
+    } catch (_) {}
 }
 
 export async function runIpCheck() {
@@ -115,8 +138,9 @@ export async function fetchOoniWatchlist() {
     try {
         const { data } = await api.get('/ooni/watchlist');
         store.ooniWatchlist = Array.isArray(data?.services) ? data.services : [];
+        store.ooniWatchlistUrls = Array.isArray(data?.urls) ? data.urls : [];
     } catch (_) { /* ignore */ }
-    return store.ooniWatchlist;
+    return { services: store.ooniWatchlist, urls: store.ooniWatchlistUrls };
 }
 
 export async function toggleOoniWatch(serviceKey) {
@@ -124,19 +148,39 @@ export async function toggleOoniWatch(serviceKey) {
     const cur = Array.isArray(store.ooniWatchlist) ? store.ooniWatchlist : [];
     const has = cur.includes(serviceKey);
     const next = has ? cur.filter((k) => k !== serviceKey) : [...cur, serviceKey];
-    // Optimistic update
     store.ooniWatchlist = next;
     try {
-        const { data } = await api.put('/ooni/watchlist', { services: next });
-        if (Array.isArray(data?.services)) {
-            store.ooniWatchlist = data.services;
-        }
+        const { data } = await api.put('/ooni/watchlist', {
+            services: next,
+            urls: store.ooniWatchlistUrls || [],
+        });
+        if (Array.isArray(data?.services)) store.ooniWatchlist = data.services;
+        if (Array.isArray(data?.urls)) store.ooniWatchlistUrls = data.urls;
     } catch (e) {
-        // Rollback on failure
         store.ooniWatchlist = cur;
         throw e;
     }
     return store.ooniWatchlist;
+}
+
+export async function toggleUrlWatch(url) {
+    if (!url) return;
+    const cur = Array.isArray(store.ooniWatchlistUrls) ? store.ooniWatchlistUrls : [];
+    const has = cur.includes(url);
+    const next = has ? cur.filter((u) => u !== url) : [...cur, url];
+    store.ooniWatchlistUrls = next;
+    try {
+        const { data } = await api.put('/ooni/watchlist', {
+            services: store.ooniWatchlist || [],
+            urls: next,
+        });
+        if (Array.isArray(data?.services)) store.ooniWatchlist = data.services;
+        if (Array.isArray(data?.urls)) store.ooniWatchlistUrls = data.urls;
+    } catch (e) {
+        store.ooniWatchlistUrls = cur;
+        throw e;
+    }
+    return store.ooniWatchlistUrls;
 }
 
 export async function contributeSignals({ country, asn = null, signals }) {
@@ -166,11 +210,110 @@ export async function fetchOoniSummary({ force = false } = {}) {
     }
 }
 
+export async function searchOoni(q, { country = null, limit = 10 } = {}) {
+    const key = `${(q || '').toLowerCase()}|${country || ''}`;
+    const cached = store.searchCache[key];
+    if (cached && Date.now() - cached.fetchedAt < 5 * 60_000) {
+        return cached.results;
+    }
+    const params = { q, limit };
+    if (country) params.country = country;
+    const { data } = await api.get('/ooni/search', { params });
+    const results = Array.isArray(data?.results) ? data.results : [];
+    store.searchCache[key] = { results, fetchedAt: Date.now() };
+    return results;
+}
+
+export async function fetchUrlDetails(url, { force = false, country = null, asn = null, days = 30 } = {}) {
+    if (!url) throw new Error('url required');
+    const hash = hashFor(url);
+    const cached = store.urlDetailsCache[hash];
+    if (!force && cached && Date.now() - cached._fetchedAt < 15 * 60_000) {
+        return cached;
+    }
+    const params = { url, days };
+    if (force) params.force = 1;
+    if (country) params.country = country;
+    if (asn) params.asn = asn;
+    const { data } = await api.get('/ooni/url-details', { params });
+    const dto = { ...data.result, _fetchedAt: Date.now() };
+    store.urlDetailsCache[hash] = dto;
+    return dto;
+}
+
+export async function fetchMyData({ page = 1, perPage = 30 } = {}) {
+    store.myDataLoading = true;
+    try {
+        const { data } = await api.get('/ooni/my-data', { params: { page, perPage } });
+        if (page === 1) {
+            store.myData = data;
+        } else if (store.myData) {
+            // Append for pagination
+            store.myData = {
+                ...data,
+                recentSignals: [...store.myData.recentSignals, ...(data.recentSignals || [])],
+            };
+        }
+        return data;
+    } finally {
+        store.myDataLoading = false;
+    }
+}
+
+export async function deleteMyData() {
+    const { data } = await api.delete('/ooni/my-data', { params: { confirm: 1 } });
+    store.myData = {
+        totalSignals: 0,
+        firstSeenAt: null,
+        lastSeenAt: null,
+        distinctUrls: 0,
+        reachableCount: 0,
+        blockedCount: 0,
+        distinctNetworks: 0,
+        recentSignals: [],
+        page: 1,
+        perPage: 30,
+        totalPages: 0,
+        hasMore: false,
+    };
+    return data;
+}
+
+export function exportMyDataUrl() {
+    // Using a signed initData dance for downloads is awkward; the simplest
+    // reliable approach is an XHR fetch with our normal interceptor then an
+    // in-memory blob download.
+    return '/api/miniapp/ooni/my-data/export';
+}
+
+export async function exportMyData() {
+    const response = await api.get('/ooni/my-data/export', { responseType: 'blob' });
+    const blob = response.data instanceof Blob ? response.data : new Blob([response.data], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `larastory-ooni-data-${store.user?.id ?? 'export'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+}
+
 export function toast(message, kind = 'info', ms = 2400) {
     store.toast = { message, kind, id: Date.now() };
     setTimeout(() => {
         if (store.toast && store.toast.message === message) store.toast = null;
     }, ms);
+}
+
+// Tiny SHA-1 replacement: we only need a stable cache key for URL lookups.
+// The backend returns `urlHash` on details, so prefer that where available.
+function hashFor(url) {
+    let h = 0;
+    for (let i = 0; i < url.length; i++) {
+        h = ((h << 5) - h + url.charCodeAt(i)) | 0;
+    }
+    return 'u' + (h >>> 0).toString(36);
 }
 
 function describeError(e) {

@@ -32,7 +32,9 @@ class BootstrapController extends Controller
                 'subToken' => $user->getOrGenerateSubToken(),
                 'onboardedAt' => $user->onboarded_at?->toIso8601String(),
                 'contributeSignals' => (bool) $user->ooni_contribute,
+                'contributeAckedAt' => $user->ooni_contribute_acked_at?->toIso8601String(),
                 'ooniWatchlist' => (array) ($user->ooni_watchlist ?? []),
+                'ooniWatchlistUrls' => (array) ($user->ooni_watchlist_urls ?? []),
             ],
             'servers' => $servers,
             'config' => [

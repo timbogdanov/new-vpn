@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\MiniApp;
 
+use App\Http\Controllers\Concerns\ResolvesUserNetwork;
 use App\Http\Controllers\Controller;
 use App\Services\GeoIpService;
 use App\Services\OoniService;
@@ -11,6 +12,8 @@ use Illuminate\Http\Request;
 
 class ToolsController extends Controller
 {
+    use ResolvesUserNetwork;
+
     public function ipCheck(Request $request, GeoIpService $geo): JsonResponse
     {
         $ip = $this->resolveClientIp($request);
@@ -62,75 +65,21 @@ class ToolsController extends Controller
 
     public function ooniSummary(Request $request, GeoIpService $geo, OoniService $ooni): JsonResponse
     {
-        // Allow the client to override country/ASN via query (for VPN-on
-        // retries and explicit "what's blocked in X" browsing). Default
-        // comes from server-side geo of the current connection.
-        $qCountry = strtoupper((string) $request->query('country', ''));
-        $qAsn = strtoupper((string) $request->query('asn', ''));
-
-        $country = preg_match('/^[A-Z]{2}$/', $qCountry) ? $qCountry : null;
-        $asn = preg_match('/^AS\d+$/', $qAsn) ? $qAsn : null;
-        $asnName = null;
-
-        if (!$country || !$asn) {
-            $geoResult = $geo->lookup($this->resolveClientIp($request));
-            if ($geoResult) {
-                $country = $country ?: $geoResult->countryCode;
-                $asn = $asn ?: $geoResult->asn;
-                $asnName = $geoResult->asnName;
-            }
-        }
-
-        if (!$country) {
+        $net = $this->resolveNetwork($request, $geo);
+        if (!$net['country']) {
             return response()->json([
                 'error' => 'geo_failed',
                 'message' => 'Could not detect your network',
             ], 502);
         }
 
-        // Persist last-seen network on the user so the DiffOoniWatchlists
-        // scheduler knows where to query on their behalf.
-        $user = $request->user();
-        if ($user) {
-            $dirty = false;
-            if ($user->ooni_last_country !== $country) {
-                $user->ooni_last_country = $country;
-                $dirty = true;
-            }
-            if ($asn && $user->ooni_last_asn !== $asn) {
-                $user->ooni_last_asn = $asn;
-                $dirty = true;
-            }
-            if ($dirty) {
-                $user->save();
-            }
+        if ($request->boolean('force')) {
+            $ooni->refresh($net['country'], $net['asn']);
         }
-
-        $force = $request->boolean('force');
-        $summary = $force ? $ooni->refresh($country, $asn) : $ooni->summary($country, $asn);
+        $summary = $ooni->topBlocked($net['country'], $net['asn']);
         $payload = $summary->toArray();
-        $payload['asnName'] = $asnName ?: $payload['asnName'];
+        $payload['asnName'] = $net['asnName'] ?: $payload['asnName'];
 
         return response()->json(['result' => $payload]);
-    }
-
-    private function resolveClientIp(Request $request): string
-    {
-        $forwardedFor = $request->header('X-Forwarded-For');
-        if ($forwardedFor) {
-            $first = trim(explode(',', $forwardedFor)[0]);
-            if (filter_var($first, FILTER_VALIDATE_IP)) {
-                return $first;
-            }
-        }
-
-        foreach (['X-Real-IP', 'CF-Connecting-IP'] as $h) {
-            $v = $request->header($h);
-            if ($v && filter_var($v, FILTER_VALIDATE_IP)) {
-                return $v;
-            }
-        }
-
-        return $request->ip() ?? '0.0.0.0';
     }
 }

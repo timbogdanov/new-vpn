@@ -1,12 +1,15 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { t } from '../i18n.js';
 import { hap } from '../telegram.js';
 import { probeReachability } from '../composables/useProbe.js';
 import { store, contributeSignals, fetchOoniSummary } from '../store.js';
 import { SectionLabel, ListGroup, ListRow, Chip } from '../components/ui/index.js';
 
-const DOMAINS = [
+const route = useRoute();
+
+const DEFAULT_DOMAINS = [
     { domain: 'instagram.com', key: 'instagram' },
     { domain: 'youtube.com',   key: 'youtube' },
     { domain: 'x.com',         key: 'x' },
@@ -16,6 +19,20 @@ const DOMAINS = [
     { domain: 'meduza.io',     key: 'meduza' },
     { domain: 'wikipedia.org', key: 'wikipedia' },
 ];
+
+function extractHost(raw) {
+    if (!raw) return null;
+    try {
+        const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+        return u.hostname || null;
+    } catch (_) { return null; }
+}
+
+// Single-URL override when deep-linked from FreedomUrlDetail's empty state.
+const overrideHost = extractHost(route.query.url);
+const DOMAINS = overrideHost
+    ? [{ domain: overrideHost, key: '_custom' }]
+    : DEFAULT_DOMAINS;
 
 const results = ref(
     DOMAINS.reduce((acc, d) => { acc[d.domain] = 'checking'; return acc; }, {}),
@@ -51,10 +68,14 @@ async function runAll() {
     for (const d of DOMAINS) results.value[d.domain] = 'checking';
     const probed = await Promise.all(
         DOMAINS.map(async (d) => {
-            const url = `https://${d.domain}/favicon.ico`;
-            const state = await probeReachability(url, 5000);
+            const probeUrl = `https://${d.domain}/favicon.ico`;
+            const state = await probeReachability(probeUrl, 5000);
             results.value[d.domain] = state;
-            return { serviceKey: d.key, url, result: state };
+            // Signal URL mirrors OONI's canonical web_connectivity input
+            // (root path + trailing slash) so contributed data joins up with
+            // the aggregation we read from OONI.
+            const signalUrl = `https://${d.domain}/`;
+            return { serviceKey: d.key, url: signalUrl, result: state };
         }),
     );
     running.value = false;

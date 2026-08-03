@@ -65,6 +65,10 @@ class ConnectEndpointTest extends TestCase
         ])->assertOk();
 
         $first->assertJsonStructure(['subscriptionUrl', 'deepLinks' => ['ios', 'android', 'macos', 'desktop']]);
+        // Connect must hand out the universal (aggregated) subscription so it
+        // never 400s on a per-server sub_id that has drifted from the panel.
+        $this->assertStringContainsString('/sub/u/', $first->json('subscriptionUrl'));
+        $this->assertStringContainsString('import', $first->json('deepLinks.ios'));
         $this->assertSame(1, VpnClient::count());
 
         $second = $this->postJson("/api/miniapp/servers/{$server->slug}/connect", [], [

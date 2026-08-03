@@ -33,6 +33,20 @@ class LinkService
         return rtrim($server->subscriptionBaseUrl(), '/') . '/' . $client->sub_id;
     }
 
+    /**
+     * Build a device-specific import deep link (v2raytun:// / hiddify://)
+     * wrapping an arbitrary subscription URL — e.g. the universal
+     * /sub/u/{token} endpoint the connect flow now hands out.
+     */
+    public function importLinkForUrl(string $subscriptionUrl, string $device = 'ios'): string
+    {
+        $device = strtolower($device);
+        $schemes = (array) config('miniapp.deep_link_schemes', []);
+        $template = $schemes[$device] ?? $schemes['unknown'] ?? 'v2raytun://import/{url}';
+
+        return str_replace('{url}', rawurlencode($subscriptionUrl), $template);
+    }
+
     public function appStoreLinks(): array
     {
         return (array) config('miniapp.app_store_links', []);

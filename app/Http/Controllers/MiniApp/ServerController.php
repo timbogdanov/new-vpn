@@ -56,12 +56,15 @@ class ServerController extends Controller
 
         $aggregated->invalidate($user);
 
-        $subscriptionUrl = $links->subscriptionUrlFor($client, $server);
+        // Hand back the universal (aggregated) subscription, not the per-server
+        // 3x-ui sub URL. Laravel builds the universal link from the DB + live
+        // inbound so it always resolves and self-heals; the 3x-ui sub server
+        // 400s whenever a client's sub_id has drifted from the panel.
+        $subscriptionUrl = url('/sub/u/' . $user->getOrGenerateSubToken());
         $devices = ['ios', 'android', 'macos', 'desktop'];
         $deepLinks = [];
         foreach ($devices as $device) {
-            $built = $links->createLinks($client, $server, $device);
-            $deepLinks[$device] = $built['importLink'];
+            $deepLinks[$device] = $links->importLinkForUrl($subscriptionUrl, $device);
         }
 
         return response()->json([

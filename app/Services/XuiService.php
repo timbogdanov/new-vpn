@@ -95,6 +95,97 @@ class XuiService
     }
 
     /**
+     * Add a client to this inbound using a caller-supplied identity
+     * (uuid/subId/email/tgId/enable), unlike createClient() which mints fresh
+     * ones. Used by `vpn:reprovision` to re-create existing clients on a new
+     * panel after a server migration, preserving each user's uuid so their
+     * already-imported configs keep authenticating.
+     *
+     * Returns true on success. A 3x-ui "duplicate/already exists" response is
+     * treated as success (idempotent single add). Never throws.
+     */
+    public function addExistingClient(VpnClientDTO $client, ?int $limitIp = null): bool
+    {
+        return $this->addExistingClients([$client], $limitIp)[$client->uuid] ?? false;
+    }
+
+    /**
+     * Batch variant of addExistingClient(): adds N clients in a single
+     * addClient call (3x-ui accepts a multi-entry settings.clients array),
+     * cutting HTTP round-trips. Returns a [uuid => bool] success map.
+     *
+     * A multi-client batch that fails maps every uuid to false so the caller
+     * can retry per-client (where a benign duplicate resolves to success). A
+     * single-client add forgives duplicates so re-runs are idempotent.
+     *
+     * @param  array<int, VpnClientDTO>  $clients
+     * @return array<string, bool>
+     */
+    public function addExistingClients(array $clients, ?int $limitIp = null): array
+    {
+        if ($clients === []) {
+            return [];
+        }
+
+        $limit = $limitIp ?? (int) config('vpn.default_device_limit', 2);
+
+        $entries = array_map(fn (VpnClientDTO $c) => [
+            'id' => $c->uuid,
+            'flow' => 'xtls-rprx-vision',
+            'email' => $c->email,
+            'tgId' => $c->telegramId !== null ? (string) $c->telegramId : '',
+            'limitIp' => $limit,
+            'totalGB' => $c->totalGB,
+            'expiryTime' => $c->expiryTime,
+            'enable' => $c->enabled,
+            'subId' => $c->subId,
+            'reset' => 0,
+        ], array_values($clients));
+
+        $payload = [
+            'id' => $this->creds->inboundId,
+            'settings' => json_encode(['clients' => $entries]),
+        ];
+
+        $response = $this->makeRequest('POST', 'panel/api/inbounds/addClient', $payload);
+        $ok = (bool) ($response['success'] ?? false);
+
+        // A single add that "fails" only because the client already exists is a
+        // success for our idempotent purposes. We don't extend this to multi
+        // batches: there we can't tell which entries applied, so we report the
+        // whole batch failed and let the caller fall back to per-client adds.
+        if (!$ok && count($entries) === 1 && $this->isDuplicateResponse($response)) {
+            $ok = true;
+        }
+
+        if ($ok) {
+            $this->forgetInboundCache();
+        } else {
+            Log::warning('XUI: addExistingClients failed', [
+                'server' => $this->creds->host,
+                'count' => count($entries),
+                'msg' => $response['msg'] ?? null,
+            ]);
+        }
+
+        return array_fill_keys(
+            array_map(fn (VpnClientDTO $c) => $c->uuid, array_values($clients)),
+            $ok,
+        );
+    }
+
+    private function isDuplicateResponse(array $response): bool
+    {
+        $msg = strtolower((string) ($response['msg'] ?? ''));
+
+        return $msg !== '' && (
+            str_contains($msg, 'duplicate')
+            || str_contains($msg, 'already exist')
+            || str_contains($msg, 'exists')
+        );
+    }
+
+    /**
      * Disable a client in 3x-ui by UUID. Used by billing:enforce-quotas when
      * a quota is exhausted or a subscription expires.
      */

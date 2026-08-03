@@ -97,4 +97,77 @@ class XuiServiceTest extends TestCase
         $this->assertStringContainsString('pbk=PUB', $link);
         $this->assertStringContainsString('sid=1234', $link);
     }
+
+    public function test_add_existing_client_posts_supplied_identity(): void
+    {
+        Http::fake([
+            'xui.local:2053/login' => Http::response(
+                ['success' => true], 200, ['Set-Cookie' => '3x-ui=ABC; Path=/']
+            ),
+            'xui.local:2053/panel/api/inbounds/addClient' => Http::response(['success' => true]),
+        ]);
+
+        $svc = new XuiService($this->creds());
+        // Disabled row: enable must be preserved as false, not silently re-enabled.
+        $dto = new VpnClientDTO('keep-uuid', 'keep-email', 555, 'keep-sub', false, 0, 0);
+
+        $this->assertTrue($svc->addExistingClient($dto));
+
+        Http::assertSent(function ($req) {
+            if (!str_contains((string) $req->url(), 'addClient')) {
+                return false;
+            }
+            $client = json_decode($req->data()['settings'], true)['clients'][0] ?? [];
+            return ($client['id'] ?? null) === 'keep-uuid'
+                && ($client['subId'] ?? null) === 'keep-sub'
+                && ($client['email'] ?? null) === 'keep-email'
+                && ($client['tgId'] ?? null) === '555'
+                && ($client['enable'] ?? null) === false
+                && ($client['flow'] ?? null) === 'xtls-rprx-vision';
+        });
+    }
+
+    public function test_add_existing_client_treats_duplicate_as_success(): void
+    {
+        Http::fake([
+            'xui.local:2053/login' => Http::response(
+                ['success' => true], 200, ['Set-Cookie' => '3x-ui=ABC; Path=/']
+            ),
+            'xui.local:2053/panel/api/inbounds/addClient' => Http::response(
+                ['success' => false, 'msg' => 'Email already exists']
+            ),
+        ]);
+
+        $svc = new XuiService($this->creds());
+        $dto = new VpnClientDTO('dup-uuid', 'dup-email', 1, 'dup-sub', true, 0, 0);
+
+        // A single add that only "fails" because the client already exists is
+        // idempotent success, so re-runs of vpn:reprovision don't report errors.
+        $this->assertTrue($svc->addExistingClient($dto));
+    }
+
+    public function test_add_existing_clients_batch_returns_per_uuid_map(): void
+    {
+        Http::fake([
+            'xui.local:2053/login' => Http::response(
+                ['success' => true], 200, ['Set-Cookie' => '3x-ui=ABC; Path=/']
+            ),
+            'xui.local:2053/panel/api/inbounds/addClient' => Http::response(['success' => true]),
+        ]);
+
+        $svc = new XuiService($this->creds());
+        $a = new VpnClientDTO('uuid-a', 'ea', 1, 'sa', true, 0, 0);
+        $b = new VpnClientDTO('uuid-b', 'eb', 2, 'sb', false, 0, 0);
+
+        $map = $svc->addExistingClients([$a, $b]);
+
+        $this->assertSame(['uuid-a' => true, 'uuid-b' => true], $map);
+        Http::assertSent(function ($req) {
+            if (!str_contains((string) $req->url(), 'addClient')) {
+                return false;
+            }
+            $clients = json_decode($req->data()['settings'], true)['clients'] ?? [];
+            return count($clients) === 2 && $clients[1]['enable'] === false;
+        });
+    }
 }

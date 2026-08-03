@@ -170,4 +170,31 @@ class XuiServiceTest extends TestCase
             return count($clients) === 2 && $clients[1]['enable'] === false;
         });
     }
+
+    public function test_enable_client_posts_enable_true(): void
+    {
+        Http::fake([
+            'xui.local:2053/login' => Http::response(
+                ['success' => true], 200, ['Set-Cookie' => '3x-ui=ABC; Path=/']
+            ),
+            'xui.local:2053/panel/api/inbounds/get/1' => Http::response([
+                'success' => true,
+                'obj' => ['settings' => json_encode(['clients' => [
+                    ['id' => 'u-1', 'enable' => false, 'email' => 'e1'],
+                ]])],
+            ]),
+            'xui.local:2053/panel/api/inbounds/updateClient/u-1' => Http::response(['success' => true]),
+        ]);
+
+        $svc = new XuiService($this->creds());
+        $this->assertTrue($svc->enableClient('u-1'));
+
+        Http::assertSent(function ($req) {
+            if (!str_contains((string) $req->url(), 'updateClient/u-1')) {
+                return false;
+            }
+            $client = json_decode($req->data()['settings'], true)['clients'][0] ?? [];
+            return ($client['enable'] ?? null) === true;
+        });
+    }
 }

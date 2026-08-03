@@ -21,7 +21,7 @@ class EnforceQuotas extends Command
         $hardCutoff = (bool) config('billing.enforcement.hard_cutoff', true);
 
         $now = Carbon::now();
-        $count = ['expired' => 0, 'quota' => 0, 'errors' => 0];
+        $count = ['expired' => 0, 'quota' => 0, 'reenabled' => 0, 'errors' => 0];
 
         $candidates = VpnClient::query()
             ->where('enabled', true)
@@ -72,9 +72,46 @@ class EnforceQuotas extends Command
             }
         }
 
+        // Re-enable pass: flip back on any client we billing-disabled (expiry
+        // or quota) that is valid again after a renewal / new payment. Without
+        // this, a lapsed-then-renewed user stays dead — nothing else re-enables.
+        $reactivate = VpnClient::query()
+            ->where('enabled', false)
+            ->whereIn('disabled_reason', [$reasonExpired, $reasonQuota])
+            ->where(function ($q) use ($now) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>', $now);
+            })
+            ->with('server')
+            ->get();
+
+        foreach ($reactivate as $client) {
+            if ($client->quota_bytes !== null) {
+                $used = (int) $client->last_traffic_up + (int) $client->last_traffic_down;
+                if ($used >= (int) $client->quota_bytes) {
+                    continue; // still over quota
+                }
+            }
+
+            $client->forceFill(['enabled' => true, 'disabled_reason' => null])->save();
+            $count['reenabled']++;
+
+            if ($client->server) {
+                try {
+                    $factory->forServer($client->server)->enableClient($client->uuid);
+                } catch (\Throwable $e) {
+                    $count['errors']++;
+                    Log::warning('billing:enforce-quotas: panel enable failed', [
+                        'vpn_client_id' => $client->id,
+                        'server' => $client->server->slug,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
         $this->info(sprintf(
-            'enforced: expired=%d quota=%d errors=%d',
-            $count['expired'], $count['quota'], $count['errors'],
+            'enforced: expired=%d quota=%d reenabled=%d errors=%d',
+            $count['expired'], $count['quota'], $count['reenabled'], $count['errors'],
         ));
 
         return self::SUCCESS;

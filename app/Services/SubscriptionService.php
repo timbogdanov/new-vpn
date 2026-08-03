@@ -166,11 +166,21 @@ class SubscriptionService
         $cap = $sub->trafficCapBytes();
         $expiresAt = $sub->expires_at;
 
+        $update = [
+            'quota_bytes' => $cap,
+            'expires_at' => $expiresAt,
+        ];
+
+        // An active/future subscription must clear a prior billing-disable so a
+        // renewal after a lapse actually restores access. Panel-side enable is
+        // then reconciled by billing:enforce-quotas' re-enable pass.
+        if ($expiresAt === null || $expiresAt->isFuture()) {
+            $update['enabled'] = true;
+            $update['disabled_reason'] = null;
+        }
+
         VpnClient::query()
             ->where('telegram_user_id', $user->telegram_id)
-            ->update([
-                'quota_bytes' => $cap,
-                'expires_at' => $expiresAt,
-            ]);
+            ->update($update);
     }
 }

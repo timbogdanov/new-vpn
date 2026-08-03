@@ -212,6 +212,33 @@ class XuiService
         return $ok;
     }
 
+    /**
+     * Re-enable a client in 3x-ui by UUID. The counterpart to disableClient(),
+     * used when a lapsed subscription is renewed so the panel matches the DB.
+     */
+    public function enableClient(string $uuid): bool
+    {
+        $payload = $this->buildClientUpdatePayload($uuid, ['enable' => true]);
+        if ($payload === null) {
+            return false;
+        }
+
+        $response = $this->makeRequest('POST', "panel/api/inbounds/updateClient/{$uuid}", $payload);
+        $ok = (bool) ($response['success'] ?? false);
+
+        if ($ok) {
+            $this->forgetInboundCache();
+            Log::info('XUI: Enabled client', ['uuid' => $uuid, 'server' => $this->creds->host]);
+        } else {
+            Log::warning('XUI: Failed to enable client', [
+                'uuid' => $uuid,
+                'response' => $response,
+            ]);
+        }
+
+        return $ok;
+    }
+
     private function buildClientUpdatePayload(string $uuid, array $changes): ?array
     {
         $inbound = $this->getInboundCached();

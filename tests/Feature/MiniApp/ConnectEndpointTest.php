@@ -64,11 +64,13 @@ class ConnectEndpointTest extends TestCase
             'X-Telegram-Init-Data' => $initData,
         ])->assertOk();
 
-        $first->assertJsonStructure(['subscriptionUrl', 'deepLinks' => ['ios', 'android', 'macos', 'desktop']]);
+        $first->assertJsonStructure(['subscriptionUrl', 'configText', 'deepLinks' => ['ios', 'android', 'macos', 'desktop']]);
         // Connect must hand out the universal (aggregated) subscription so it
         // never 400s on a per-server sub_id that has drifted from the panel.
         $this->assertStringContainsString('/sub/u/', $first->json('subscriptionUrl'));
         $this->assertStringContainsString('import', $first->json('deepLinks.ios'));
+        // Raw copy-paste config: a self-contained vless:// line.
+        $this->assertStringStartsWith('vless://', (string) $first->json('configText'));
         $this->assertSame(1, VpnClient::count());
 
         $second = $this->postJson("/api/miniapp/servers/{$server->slug}/connect", [], [

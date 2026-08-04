@@ -70,6 +70,7 @@ class ServerController extends Controller
         return response()->json([
             'server' => $server->toPublicDTO()->toArray(),
             'subscriptionUrl' => $subscriptionUrl,
+            'configText' => $links->configTextFor($client, $server),
             'deepLinks' => $deepLinks,
             'redirectUrlBase' => 'https://' . config('vpn.primary_domain') . '/vpn-link?url=',
             'appStoreLinks' => $links->appStoreLinks(),

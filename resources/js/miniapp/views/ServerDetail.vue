@@ -27,6 +27,7 @@ const showQr = ref(false);
 const error = ref(null);
 
 const { copy, copied } = useClipboard();
+const { copy: copyConfig, copied: configCopied } = useClipboard();
 const device = detectDevice();
 
 onMounted(async () => {
@@ -65,6 +66,7 @@ const subscriptionPreview = computed(() => {
     if (!url) return '';
     return url.length > 28 ? `${url.slice(0, 28)}…` : url;
 });
+const configText = computed(() => payload.value?.configText || '');
 const appStoreLink = computed(() => payload.value?.appStoreLinks?.[device] || payload.value?.appStoreLinks?.ios);
 
 const heroStatus = computed(() => {
@@ -97,6 +99,11 @@ async function provisionIfNeeded() {
 async function copyUrl() {
     hap.light();
     if (await copy(subscriptionUrl.value)) toast(t('server.copied'), 'success');
+}
+
+async function copyConfigText() {
+    hap.light();
+    if (await copyConfig(configText.value)) toast(t('server.configCopied'), 'success');
 }
 
 function toggleQr() {
@@ -188,6 +195,24 @@ async function openHelp() {
                     </ListRow>
                     <ListRow :title="t('server.showQr')" chevron @click="toggleQr" />
                     <ListRow v-if="appStoreLink" :title="t('server.download')" chevron @click="openStore" />
+                </ListGroup>
+            </section>
+
+            <section v-if="configText" class="detail__section">
+                <div class="detail__label">{{ t('server.configTitle') }}</div>
+                <ListGroup>
+                    <ListRow :interactive="false">
+                        <template #title>{{ t('server.copyConfig') }}</template>
+                        <template #subtitle>{{ t('server.configHint') }}</template>
+                        <template #trailing>
+                            <div class="detail__actions">
+                                <IconButton :aria-label="t('server.copyConfig')" variant="ghost" @click="copyConfigText">
+                                    <Check v-if="configCopied" :size="18" :stroke-width="1.5" />
+                                    <Copy v-else :size="18" :stroke-width="1.5" />
+                                </IconButton>
+                            </div>
+                        </template>
+                    </ListRow>
                 </ListGroup>
             </section>
 
